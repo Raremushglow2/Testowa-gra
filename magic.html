@@ -1,0 +1,4010 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Testowa gra</title>
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #111;
+        color: #fff;
+        overflow: hidden;
+        text-align: center;
+    }
+
+    #chooseScreen {
+        padding-top: 40px;
+    }
+
+    .character {
+        display: inline-block;
+        cursor: pointer;
+        padding: 20px;
+        background: #222;
+        border-radius: 10px;
+        transition: 0.2s;
+    }
+    .character:hover {
+        transform: scale(1.05);
+        background: #333;
+    }
+
+    #gameContainer {
+        display: none;
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        background: #052005; /* ciemna zieleń tła poza pokojem */
+        overflow: hidden;
+    }
+
+    /* cały świat w środku – kamerą przesuwamy WORLD, nie gameContainer */
+    #world {
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+
+    #player {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+       background: url("player1.png") center/contain no-repeat;
+        z-index: 10;
+    }
+
+    .floor {
+        position: absolute;
+        background: #38a53c; /* jednolita zieleń – ZERO kratki */
+        z-index: 1;
+    }
+#miniMap {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    width: 150px;
+    height: 150px;
+    background: rgba(0,0,0,0.4);
+    border: 2px solid #fff;
+    padding: 5px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 3px;
+    z-index: 50;
+}
+
+.miniRoom {
+    background: #063006;
+    border-radius: 3px;
+}
+
+.miniRoom.current {
+    background: #ffffff;
+}
+
+.miniRoom.visited {
+    background: #2ecc71;
+}
+
+.miniRoom.hasGoal {
+    position: relative;
+}
+#shopMenu {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.miniRoom.hasGoal::after {
+    content: "";
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: yellow;
+    border-radius: 50%;
+    right: 4px;
+    bottom: 4px;
+}
+/* ★★★ HUD – na dole ekranu ★★★ */
+
+#hud {
+    position: absolute;
+    width: 100%;
+    left: 0;
+    bottom: 0;        /* 🔥 przeniesiony HUD na dół */
+    z-index: 999;
+    pointer-events: none;
+}
+
+/* HP bar powyżej czarów */
+#hpBar {
+    width: 300px;
+    height: 28px;
+    background: #440000;
+    border: 2px solid #aa0000;
+    border-radius: 6px;
+    margin: 0 auto;
+    margin-bottom: 110px;   /* 🔥 HP wyżej */
+    position: relative;
+}
+#hpFill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(#ff4444, #cc0000);
+    border-radius: 4px;
+}
+
+/* Spell bar – NA DOLE */
+#spellBar {
+    position: absolute;
+    bottom: 20px;         /* 🔥 na samym dole */
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 20px;
+    pointer-events: auto;
+}
+.enemy {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    background: url("enemy.png") center/cover no-repeat;
+    z-index: 8;
+}
+
+.enemyWarning {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    background: rgba(255, 0, 0, 0.25);
+    border-radius: 50%;
+ 
+    z-index: 3;
+    display: none;
+}
+
+.spellSlot {
+    width: 80px;
+    height: 80px;
+    background: #333;
+    border: 3px solid #555;
+    border-radius: 10px;
+    position: relative;
+}
+
+.spellSlot.active {
+    border-color: #00ccff;
+    box-shadow: 0 0 10px #00ccff;
+}
+
+.cooldownCover {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.55);
+    border-radius: 10px;
+    display: none;
+}
+.spellSlot {
+    width: 80px;
+    height: 80px;
+    background: #333;
+    border: 3px solid #555;
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;             /* 🔥 NIC nie wyjdzie poza slot */
+}
+
+.spellSlot img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;          /* 🔥 ikonka dopasowana */
+    border-radius: 7px;
+    display: block;
+}
+
+    .door {
+        position: absolute;
+        background: #d3a66c;
+        border: 2px solid #8b6b43;
+        z-index: 5;
+    }
+.miniRoom.fightRoom {
+    position: relative;
+}
+
+.miniRoom.fightRoom::after {
+    content: "⚔️";
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    font-size: 14px;
+}
+
+#aimLine {
+    position: absolute;
+    width: 60px;       /* długość celownika */
+    height: 6px;       /* grubość celownika */
+    background: #00c8ff;
+    border-radius: 3px;
+    z-index: 15;
+    transform-origin: left center;  /* obracamy od lewej strony */
+    opacity: 0.9;
+}
+.tree {
+    position: absolute;
+    width: 160px;
+    height: 160px;
+    background: url("tree.png") center/cover no-repeat;
+    z-index: 4; /* pod graczem, nad podłogą */
+    pointer-events: none;
+}
+.flower {
+    position: absolute;
+    width: 60px;      /* mały kwiatuszek */
+    height: 60px;
+       background: url("flower.png") center/contain no-repeat;
+    z-index: 3;        /* pod graczem, nad podłogą */
+    pointer-events: none;
+}
+#spellMenu {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 250px;
+    padding: 20px;
+    background: rgba(0,0,0,0.85);
+    border: 2px solid white;
+    border-radius: 10px;
+    display: none;
+    z-index: 9999;
+}
+
+.slotOption {
+    background: #222;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.slotOption:hover {
+    background: #444;
+}
+#spellMenu {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 320px;
+    padding: 20px;
+    background: rgba(0,0,0,0.9);
+    border: 2px solid white;
+    border-radius: 10px;
+    display: none;
+    z-index: 9999;
+    text-align: center;
+}
+
+#spellImages {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.menuSpell {
+    width: 70px;
+    height: 70px;
+    background: #222;
+    border: 2px solid #555;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+#spellSlotsChoice {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+#goldHUD {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0,0,0,0.5);
+    padding: 8px 12px;
+    border: 2px solid #d4b200;
+    border-radius: 8px;
+    z-index: 9999;
+}
+.portal {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    background: radial-gradient(circle, #b400ff, #4a0077);
+    border-radius: 50%;
+    box-shadow: 0 0 25px #b400ff;
+    z-index: 20;
+    cursor: pointer;
+    animation: portalPulse 1.5s infinite ease-in-out;
+}
+
+@keyframes portalPulse {
+    0%   { transform: scale(1); box-shadow: 0 0 20px #b400ff; }
+    50%  { transform: scale(1.15); box-shadow: 0 0 40px #d44cff; }
+    100% { transform: scale(1); box-shadow: 0 0 20px #b400ff; }
+}
+
+#goldIcon {
+    width: 32px;
+    height: 32px;
+}
+.trader {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+       background: url("trader.png") center/contain no-repeat;
+    z-index: 9;
+}
+.tree2 {
+    position: absolute;
+    width: 160px;
+    height: 160px;
+    background: url("tree2.png") center/cover no-repeat;
+    z-index: 4;
+    pointer-events: none;
+}
+
+#shopMenu {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%,-50%);
+    width: 260px;
+    padding: 20px;
+    background: rgba(0,0,0,0.85);
+    border: 2px solid gold;
+    border-radius: 10px;
+    display: none;
+    z-index: 99999;
+    text-align: center;
+}
+
+.shopItem {
+    padding: 12px;
+    background: #333;
+    border: 2px solid #666;
+    border-radius: 8px;
+    margin: 10px 0;
+    cursor: pointer;
+}
+
+.shopItem:hover {
+    background:#555;
+}
+
+#goldAmount {
+    font-size: 24px;
+    font-weight: bold;
+    color: #ffd700;
+    text-shadow: 0 0 5px #000;
+}
+
+.menuSlot {
+    padding: 10px;
+    background: #333;
+    border: 2px solid #555;
+    border-radius: 6px;
+    cursor: pointer;
+}
+#magicBar {
+    position: absolute;
+    left: 20px;
+    bottom: 150px;
+    display: flex;
+    gap: 10px;
+    z-index: 999;
+}
+
+.magicSlot {
+    width: 70px;
+    height: 70px;
+    background: #333;
+    border: 3px solid #7755ff;
+    border-radius: 10px;
+    overflow: hidden;
+}
+#magicBar {
+    opacity: 0;     /* ukryte na start */
+    transition: 0.3s;
+}
+#itemHUD {
+    position: absolute;
+    top: 20px;
+    left: 120px; /* obok złota */
+    display: flex;
+    gap: 8px;
+    z-index: 9999;
+}
+
+.itemIcon {
+    width: 32px;
+    height: 32px;
+    opacity: 0.75;
+    filter: drop-shadow(0 0 4px #000);
+}
+
+.magicSlot img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+    #goal {
+        position: absolute;
+        width: 24px;
+        height: 24px;
+        background: yellow;
+        border-radius: 50%;
+        cursor: pointer;
+        z-index: 8;
+        display: none;
+    }
+</style>
+</head>
+<body>
+
+<!-- EKRAN WYBORU POSTACI -->
+<div id="chooseScreen">
+    <h1>Wybierz swoją postać</h1>
+    <div id="wizard" class="character">
+        <img src="player1.png" width="150" alt="czarodziej">
+        <p>Wesoły Czarodziej</p>
+    </div>
+</div>
+
+<!-- GRA -->
+<div id="gameContainer">
+    <div id="world">
+        <div id="player"></div>
+  <div id="aimLine"></div>
+        <div id="goal"></div>
+    </div>
+<div id="miniMap"></div>
+<div id="goldHUD">
+    <img id="goldIcon" src="gold.png">
+    <span id="goldAmount">0</span>
+</div>
+
+</div>
+<!-- HUD -->
+<div id="hud">
+    <div id="hpBar">
+        <div id="hpFill"></div>
+    </div>
+
+    <div id="spellBar">
+        <div class="spellSlot" id="slot1">
+            <img src="czar1.png">
+            <div class="cooldownCover"></div>
+        </div>
+        <div class="spellSlot" id="slot2">
+    <img src="">
+    <div class="cooldownCover"></div>
+</div>
+<div class="spellSlot" id="slot3">
+    <img src="">
+    <div class="cooldownCover"></div>
+</div>
+<div id="magicBar">
+    <div class="magicSlot" id="magicSlot1">
+        <img src="">
+    </div>
+</div>
+
+    </div>
+</div>
+
+<div id="spellMenu">
+    <h2>Zmiana układu czarów</h2>
+
+    <p>Kliknij czar → potem slot</p>
+
+    <div id="spellImages">
+        <img class="menuSpell" id="menuSpell1">
+        <img class="menuSpell" id="menuSpell2">
+        <img class="menuSpell" id="menuSpell3">
+    </div>
+
+    <div id="spellSlotsChoice">
+        <button class="menuSlot" data-slot="1">Slot 1</button>
+        <button class="menuSlot" data-slot="2">Slot 2</button>
+        <button class="menuSlot" data-slot="3">Slot 3</button>
+    </div>
+
+    <button onclick="closeSpellMenu()">Zamknij</button>
+</div>
+<div id="shopMenu">
+    <h2>Sklep handlarza</h2>
+    <p>Kup czar za 30 złota:</p>
+
+    <div id="buySpell1" class="shopItem">
+        <img src="czar1.png" width="40"><br>
+        <b>Nowy czar – 30 złota</b>
+    </div>
+<div id="buyMirrorSpell" class="shopItem">
+    <img src="czar3.png" width="40"><br>
+    <b>Lustrzany Portal – 50 złota</b>
+</div>
+
+<div id="buyCat" class="shopItem">
+    <img src="catfriend.png" width="40">
+
+    <b>Kot – 10 złota</b>
+</div>
+<div id="buyFireSpell" class="shopItem">
+    <img src="czar2.png" width="40"><br>
+    <b>Ognista Kula – 60 złota</b>
+</div>
+<div id="buyHealSpell" class="shopItem">
+    <img src="czar4.png" width="40"><br>
+    <b>Uzdrowienie – 100 złota</b>
+</div>
+
+    <div id="shopSlots"></div>
+
+    <p>Naciśnij SPACJĘ aby zamknąć</p>
+</div>
+<div id="itemHUD"></div>
+
+<div id="bossBar" style="
+    position:absolute;
+    top:20px;
+    left:50%;
+    transform:translateX(-50%);
+    width:500px;
+    height:30px;
+    background:#550000;
+    border:3px solid #aa0000;
+    border-radius:8px;
+    display:none;
+    z-index:99999;">
+    <div id="bossBarFill" style="
+        height:100%;
+        width:100%;
+        background:#ff3333;
+        border-radius:6px;">
+    </div>
+</div>
+<div id="rewardMenu" style="
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%, -50%);
+    padding:20px;
+    background:rgba(0,0,0,0.85);
+    border:3px solid gold;
+    border-radius:10px;
+    display:none;
+    z-index:999999;
+    text-align:center;
+">
+    <h2>Wybierz nagrodę</h2>
+    <div id="reward1" class="shopItem"></div>
+    <div id="reward2" class="shopItem"></div>
+ <div id="reward3" class="shopItem"></div>
+    <div id="reward4" class="shopItem"></div>
+</div>
+
+
+
+<script>
+const chooseScreen   = document.getElementById("chooseScreen");
+const gameContainer  = document.getElementById("gameContainer");
+const world          = document.getElementById("world");
+const player         = document.getElementById("player");
+const goalEl         = document.getElementById("goal");
+let gold = 0;
+
+/* --- KONFIG --- */
+const TILE_SIZE  = 240;   // DUŻE kafelki
+const ROOM_COLS  = 5;
+const ROOM_ROWS  = 5;
+const ROOM_W     = TILE_SIZE * ROOM_COLS;
+const ROOM_H     = TILE_SIZE * ROOM_ROWS;
+let camX = 0;
+let camY = 0;
+let currentTrader = null;
+let shopOpen = false;
+let traderSpawned = false;
+let traderRoom = null; // {x, y} – pokój handlarza
+let magicItems = [];
+
+let bonusDamage = 0;       // + obrażenia dla czaru 1
+let bonusCooldown = 0;     // - cooldown w sekundach
+let worldLevel = 1;      // 1–2 = las, 3 = pustynia
+let worldType = "forest"; // forest → desert
+let poisonTime = 0;
+
+const DUNGEON_W  = 3;     // 3x3 pokoje
+const DUNGEON_H  = 3;
+// zapis aktualnych czarów
+let spellsInSlots = {
+    1: "czar1.png",   // jedyny czar jaki masz
+    2: null,          // brak czaru
+    3: null           // brak czaru
+};
+let enemyProjectiles = [];
+
+
+let pickedSpell = null;
+const SPELL_COOLDOWNS = {
+    "czar1.png": 5000,
+    "czar2.png": 7000,
+    "czar3.png": 6000,
+    "czar4.png": 20000
+};
+
+/* SZABLONY POKOI */
+const roomTemplates = [
+    { // pełny prostokąt
+        tiles: [
+            [1,1,1,1,1],
+            [1,1,1,1,1],
+            [1,1,1,1,1],
+            [1,1,1,1,1],
+            [1,1,1,1,1]
+        ]
+    },
+    { // L z lewej
+        tiles: [
+            [1,1,1,0,0],
+            [1,1,1,0,0],
+            [1,1,1,1,1],
+            [1,0,0,0,0],
+            [1,0,0,0,0]
+        ]
+    },
+    { // L od dołu
+        tiles: [
+            [0,0,1,1,1],
+            [0,0,1,1,1],
+            [1,1,1,1,1],
+            [1,1,1,0,0],
+            [1,1,1,0,0]
+        ]
+    }
+];
+let mouseX = 0;
+let mouseY = 0;
+
+gameContainer.addEventListener("mousemove", e => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+});
+const ENEMY_TYPES = [
+{
+    img: "enemy.png",
+    speed: 1.2,
+    attackRange: 100,
+    attackDamage: 5,
+    maxHP: 20,
+    warnSize: 200      // dodajemy
+},
+{
+    img: "enemy2.png",
+    speed: 2.0,
+    attackRange: 160,
+    attackDamage: 8,
+    maxHP: 30,
+    warnSize: 320      // dużo większy okrąg
+},
+{
+    img: "enemy3.png",
+    speed: 3.5,         // 🔥 bardzo szybki
+    attackRange: 70,    // 🔥 mały zasięg ataku
+    attackDamage: 5,    // możesz zmienić
+    maxHP: 15,          // 🔥 twoje wymaganie
+    warnSize: 120       // małe kółko ostrzegawcze
+},
+{
+    img: "enemy4.png",
+    speed: 0,
+    attackRange: 1000,
+    attackDamage: 8,
+    maxHP: 20,
+    warnSize: 0,
+    isShooter: true,   // ⭐ najważniejsza linia!
+    fireRate: 3500
+},
+{
+    img: "scorpion.png",
+    speed: 3.2,
+    attackRange: 60,     // mały zasięg
+    attackDamage: 4,
+    maxHP: 30,
+    warnSize: 110,
+    poison: true         // 👉 specjalny efekt trucizny
+},
+{
+    img: "tumbleweed.png",   // ← nazwij swój plik tak jak chcesz
+    speed: 1.2,              // wolne turlanie
+    attackDamage: 5,
+    maxHP: 30,
+    tumble: true             // ⭐ specjalna flaga — tylko ten wróg się odbija
+},
+{
+    img: "antlion.png",
+    speed: 0,            // nie rusza się
+    attackDamage: 1,     // zadaje 1 dmg
+    maxHP: 35,
+    isAntlion: true,     // ⭐ bardzo ważna flaga
+    pullRange: 250,      // zasięg brązowego pola przyciągania
+    pullStrength: 0.6,   // siła ciągnięcia
+    damageCooldown: 1500 // 1.5 sekundy na obrażenie
+}
+
+
+
+
+
+
+];
+const RANDOM_SPELL_POOL = [
+    "czar1.png",
+    "czar2.png",
+    "czar3.png",
+    "czar4.png"
+];
+
+/* STAN DUNGEONU */
+let dungeon = [];     // dungeon[y][x] = {template, hasGoal, goalTile}
+let visited = Array.from({length: DUNGEON_H}, () =>
+    Array(DUNGEON_W).fill(false)
+);
+let mirrorControls = false;
+let mirrorDungeon = null;   // osobny świat lustra
+let inMirrorWorld = false;  // czy jesteśmy w świecie lustra
+
+let currentRoomX = 1;
+let currentRoomY = 1;
+let lastTime = 0;
+
+
+
+let playerX = 0;
+let playerY = 0;
+
+let keys = {};
+let currentDoors = [];
+let currentWalkable = []; // lista prostokątów z podłogą
+let currentTrees = [];
+let currentEnemies = [];
+let currentFlowers = [];
+
+/* STEROWANIE */
+document.addEventListener("keydown", e => { keys[e.key] = true; });
+document.addEventListener("keyup",   e => { keys[e.key] = false; });
+/* ★★★ HP i czary ★★★ */
+
+let playerHP = 100;
+function updateHP() {
+    document.getElementById("hpFill").style.width = playerHP + "%";
+}
+
+let selectedSpell = 1;
+let spellCooldown = { 1: false, 2: false, 3: false };
+
+// aktywacja slotu
+function updateSpellSelection() {
+    document.querySelectorAll(".spellSlot").forEach(s => s.classList.remove("active"));
+    document.getElementById("slot" + selectedSpell).classList.add("active");
+}
+
+updateSpellSelection();
+// 🔥 PRAWY PRZYCISK — zmiana slotu czaru
+gameContainer.addEventListener("mousedown", e => {
+    if (e.button === 2) {  // prawy klik
+        selectedSpell++;
+        if (selectedSpell > 3) selectedSpell = 1;
+
+        updateSpellSelection();
+    }
+});
+
+
+/* ---- WYBÓR CZARU 1-3 ---- */
+document.addEventListener("keydown", e => {
+    if (e.key === "1") { selectedSpell = 1; updateSpellSelection(); }
+    if (e.key === "2") { selectedSpell = 2; updateSpellSelection(); }
+    if (e.key === "3") { selectedSpell = 3; updateSpellSelection(); }
+});
+
+
+function spawnEnemies() {
+let possibleEnemies = [];
+if (worldType === "forest") {
+    possibleEnemies = [0,1,2,3];
+} else {
+    possibleEnemies = [4, 3, 5, 6]; // 6 = antlion
+ // skorpion + strzelec + tumbleweed
+}
+
+
+    const room = dungeon[currentRoomY][currentRoomX];
+
+    // ★ Pokój bossa
+    if (room.isBossRoom) {
+        if (!room.bossSpawned) {
+            spawnBoss();
+            room.bossSpawned = true;
+        }
+        return; // nie spawnujemy zwykłych wrogów
+    }
+
+    currentEnemies = [];
+
+    // ★ 1. Pokój już wyczyszczony
+    if (room.fightCleared) return;
+
+    // ★ 2. Losujemy, czy to pokój walki (tylko raz)
+    if (room.isFightRoom === false && !room.fightInitialized) {
+        room.isFightRoom = Math.random() >= 0.5;
+        room.fightInitialized = true;
+    }
+
+    // ★ 3. Jeśli nie walka → wyjście
+    if (!room.isFightRoom) return;
+
+
+
+    let enemyCount;
+
+if (worldType === "forest") {
+    enemyCount = Math.random() < 0.5 ? 1 : 2;     // las → 1 lub 2
+} else {
+    const r = Math.random();
+    if (r < 0.33) enemyCount = 1;
+    else if (r < 0.66) enemyCount = 2;
+    else enemyCount = 3;                          // pustynia → 1,2,3
+}
+
+
+
+    for (let i = 0; i < enemyCount; i++) {
+        const tile = currentWalkable[
+            Math.floor(Math.random() * currentWalkable.length)
+        ];
+
+        const ex = tile.x1 + TILE_SIZE/2 - 60;
+        const ey = tile.y1 + TILE_SIZE/2 - 60;
+
+        // 🎲 losujemy typ wroga
+const type = ENEMY_TYPES[
+    possibleEnemies[Math.floor(Math.random() * possibleEnemies.length)]
+];
+
+
+const enemy = document.createElement("div");
+enemy.className = "enemy";
+enemy.style.background = `url("${type.img}") center/cover no-repeat`;
+enemy.style.left = ex + "px";
+enemy.style.top  = ey + "px";
+
+// === Pasek HP nad wrogiem ===
+const hpBar = document.createElement("div");
+hpBar.style.position = "absolute";
+hpBar.style.width = "40px";
+hpBar.style.height = "6px";
+hpBar.style.background = "red";
+hpBar.style.border = "1px solid #000";
+hpBar.style.top = (ey - 10) + "px";
+hpBar.style.left = ex + "px";
+hpBar.style.zIndex = 9;
+
+// zielone wypełnienie
+const hpFill = document.createElement("div");
+hpFill.style.width = "100%";   // pełne HP
+hpFill.style.height = "100%";
+hpFill.style.background = "lime";
+
+hpBar.appendChild(hpFill);
+world.appendChild(hpBar);
+
+      let warn = null;
+
+if (!type.isShooter) {
+    warn = document.createElement("div");
+    warn.className = "enemyWarning";
+    warn.style.width = type.warnSize + "px";
+    warn.style.height = type.warnSize + "px";
+}
+
+
+// ustaw pozycję na środek przeciwnika
+if (warn) {
+    warn.style.left = (ex + 20 - type.warnSize/2) + "px";
+    warn.style.top  = (ey + 20 - type.warnSize/2) + "px";
+    world.appendChild(warn);
+}
+
+        world.appendChild(enemy);
+
+ currentEnemies.push({
+    el: enemy,
+    warn: warn,
+    x: ex,
+    y: ey,
+    type: type,
+    hp: type.maxHP,
+    hpBar: hpBar,
+    hpFill: hpFill,
+    attackTimer: 0,
+    attackCharging: false,
+
+    lastDamageTime: 0   // ⭐ Tumbleweed zacznie bić!
+});
+
+
+
+
+    }
+}
+
+function spawnTrees() {
+    currentTrees = [];
+
+    const treeCount = Math.floor(Math.random() * 3); // 0–2 drzewa
+
+    for (let i = 0; i < treeCount; i++) {
+
+        // losowy kafelek podłogi
+        const tile = currentWalkable[Math.floor(Math.random() * currentWalkable.length)];
+
+        const x = tile.x1 + TILE_SIZE/2 - 80; // 160x160 drzewo
+        const y = tile.y1 + TILE_SIZE/2 - 80;
+
+        // nie pozwalamy stawiać na drzwiach
+        const tooCloseToDoors = currentDoors.some(d => {
+            return Math.abs(d.left - x) < 200 && Math.abs(d.top - y) < 200;
+        });
+
+        if (tooCloseToDoors) continue;
+
+        const tree = document.createElement("div");
+        tree.className = "tree";
+        tree.style.left = x + "px";
+        tree.style.top = y + "px";
+
+        world.appendChild(tree);
+
+        currentTrees.push({
+            el: tree,
+            x1: x,
+            y1: y,
+            x2: x + 160,
+            y2: y + 160
+        });
+    }
+}
+
+function castSpell() {
+    const slot = selectedSpell;
+
+    if (!spellsInSlots[slot]) return;
+    if (spellCooldown[slot]) return;
+
+    fireSpell(slot);
+
+    spellCooldown[slot] = true;
+
+    const cover = document.querySelector(`#slot${slot} .cooldownCover`);
+    cover.style.display = "block";
+
+    setTimeout(() => {
+        spellCooldown[slot] = false;
+        cover.style.display = "none";
+    }, 7000);
+}
+
+
+
+
+
+/* ---- NIEBIESKA KULA ---- */
+let projectiles = [];
+
+function fireBlueBall() {
+    const dirX = (keys["ArrowRight"] || keys["d"]) ? 1 :
+                 (keys["ArrowLeft"]  || keys["a"]) ? -1 : 0;
+
+    const dirY = (keys["ArrowDown"]  || keys["s"]) ? 1 :
+                 (keys["ArrowUp"]    || keys["w"]) ? -1 : 0;
+
+    const dx = dirX === 0 && dirY === 0 ? 1 : dirX;
+    const dy = dirY;
+
+    const startX = playerX + 20;   // środek gracza
+    const startY = playerY + 20;
+
+    const ball = document.createElement("div");
+    ball.style.position = "absolute";
+    ball.style.width = "40px";
+    ball.style.height = "40px";
+    ball.style.background = "url('czar1.png') center/cover no-repeat";
+    ball.style.left = startX + "px";
+    ball.style.top  = startY + "px";
+    ball.style.zIndex = 20;
+
+    world.appendChild(ball);
+
+    projectiles.push({
+        el: ball,
+        x: startX,
+        y: startY,
+        dx: dx * 15,
+        dy: dy * 15
+    });
+}
+
+
+/* Ruch pocisków */
+function updateProjectiles() {
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        const p = projectiles[i];
+        p.x += p.dx;
+        p.y += p.dy;
+
+        p.el.style.left = p.x + "px";
+        p.el.style.top  = p.y + "px";
+
+        // 🔥 SPRAWDŹ TRAFIENIE W WROGA
+        for (let e = currentEnemies.length - 1; e >= 0; e--) {
+            const enemy = currentEnemies[e];
+
+            // prostokąt kolizji
+            let hit = false;
+
+
+
+
+
+if (enemy.isBoss) {
+// 🔥 NIE MOŻNA UDERZYĆ BOSS 5 POD ZIEMIĄ
+    if (enemy.bossType === "antlionKing" && enemy.burrowed) {
+        continue;  // ignoruj pocisk – boss jest nietrafialny
+    }
+    // boss 160×160
+    hit =
+        p.x < enemy.x + 160 &&
+        p.x + 40 > enemy.x &&
+        p.y < enemy.y + 160 &&
+        p.y + 40 > enemy.y;
+} else {
+    // normalny wróg 40×40
+    hit =
+        p.x < enemy.x + 40 &&
+        p.x + 40 > enemy.x &&
+        p.y < enemy.y + 40 &&
+        p.y + 40 > enemy.y;
+}
+
+
+
+            if (hit) {
+                // zadaj 10 obrażeń
+                let dmg = 10 + bonusDamage;
+
+// 🔥 OGNISTY CZAR → 15 dmg + 5 na rośliny
+if (p.fireSpell) {
+    dmg = 15;
+
+    // enemy4 = roślina, bossType plant = boss4
+    if (enemy.type === ENEMY_TYPES[3] || enemy.bossType === "plant") {
+        dmg += 5;
+    }
+}
+
+enemy.hp -= dmg;
+
+
+// ✨ efekt trafienia — wróg świeci się na jasno
+enemy.el.style.filter = "brightness(2)";
+
+// po 120 ms wraca do normalnego wyglądu
+setTimeout(() => {
+    enemy.el.style.filter = "brightness(1)";
+}, 120);
+
+if (enemy.isBoss) {
+    const percentBoss = enemy.hp / enemy.maxHP;
+    document.getElementById("bossBarFill").style.width = (percentBoss * 100) + "%";
+}
+// aktualizuj pasek HP tylko dla zwykłych wrogów
+if (!enemy.isBoss) {
+    const maxHP = enemy.type.maxHP;
+    const percent = enemy.hp / maxHP;
+    enemy.hpFill.style.width = (percent * 100) + "%";
+}
+
+
+
+                // usuń pocisk
+                p.el.remove();
+                projectiles.splice(i, 1);
+
+                // jeśli wróg odpadł
+  if (enemy.hp <= 0) {
+// 🟡 dodaj 10 złota za każdego pokonanego wroga
+gold += 10;
+updateGold();
+
+if (enemy.isBoss) {
+destroyBoss(enemy);
+
+    // oznacz pokój jako ukończony
+    if (enemy.isBoss) {
+    dungeon[currentRoomY][currentRoomX].isBossRoomCleared = true;
+    dungeon[currentRoomY][currentRoomX].fightCleared = true;
+}
+
+// 🔥 przejście do następnego świata po pokonaniu bossa
+
+
+
+    // lustro → tylko portal powrotny
+    if (inMirrorWorld) {
+        spawnReturnPortal(enemy.x + 80, enemy.y + 80);
+    }
+
+    // normalny świat → nagroda + portal
+    else {
+        showBossRewards(() => {
+            spawnPortal(enemy.x + 80, enemy.y + 80);
+        });
+    }
+}
+
+
+
+
+document.getElementById("bossBar").style.display = "none";
+
+    enemy.el.remove();
+if (enemy.field) enemy.field.remove();
+
+    if (enemy.warn) {
+    enemy.warn.remove();
+}
+
+    if (enemy.hpBar) {
+    enemy.hpBar.remove();
+}
+
+    currentEnemies.splice(e, 1);
+
+    // ★ Jeśli odpadł ostatni wróg → pokój jest na zawsze wyczyszczony
+    if (currentEnemies.length === 0) {
+        dungeon[currentRoomY][currentRoomX].fightCleared = true;
+    }
+}
+
+
+
+                break; // przejdź do kolejnego pocisku
+            }
+        }
+
+        // usuń pocisk gdy za daleko
+        if (p.x < -5000 || p.x > 5000 || p.y < -5000 || p.y > 5000) {
+            p.el.remove();
+            projectiles.splice(i, 1);
+        }
+    }
+}
+
+
+/* KAFELKI PO KTÓRYCH MOŻNA CHODZIĆ */
+function canWalk(nx, ny) {
+    const hit = {
+        x1: nx,
+        y1: ny,
+        x2: nx + 40,
+        y2: ny + 40
+    };
+
+    for (const tile of currentWalkable) {
+        const overlap =
+            hit.x1 < tile.x2 &&
+            hit.x2 > tile.x1 &&
+            hit.y1 < tile.y2 &&
+            hit.y2 > tile.y1;
+
+        if (overlap) return true;
+    }
+    return false;
+}
+
+
+function updateMiniMap() {
+    const map = document.getElementById("miniMap");
+    map.innerHTML = "";
+
+    for (let y = 0; y < DUNGEON_H; y++) {
+        for (let x = 0; x < DUNGEON_W; x++) {
+            const cell = document.createElement("div");
+            cell.className = "miniRoom";
+
+            // aktualny pokój
+            if (x === currentRoomX && y === currentRoomY) {
+                cell.classList.add("current");
+            }
+            // odwiedzone pokoje
+            else if (visited[y][x]) {
+                cell.classList.add("visited");
+            }
+            // pokój z celem
+            if (dungeon[y][x].hasGoal) {
+                cell.classList.add("hasGoal");
+            }
+if (dungeon[y][x].isFightRoom) {
+    cell.classList.add("fightRoom");
+}
+if (dungeon[y][x].isBossRoom) {
+    cell.innerText = "💀";    // emotka
+    cell.style.fontSize = "20px";
+    cell.style.textAlign = "center";
+}
+
+            map.appendChild(cell);
+        }
+    }
+}
+
+/* GENEROWANIE DUNGEONU */
+function buildDungeon() {
+    dungeon = [];
+    for (let y = 0; y < DUNGEON_H; y++) {
+        const row = [];
+        for (let x = 0; x < DUNGEON_W; x++) {
+            const tmplIndex = Math.floor(Math.random() * roomTemplates.length);
+    row.push({
+    template: tmplIndex,
+    hasGoal: false,
+    goalTile: null,
+    isFightRoom: false,
+    fightCleared: false,
+    isBossRoom: false,     // ★ nowość
+    bossSpawned: false     // ★ nowość
+});
+
+        }
+        dungeon.push(row);
+    }
+
+    // losowy pokój z celem
+    const gx = Math.floor(Math.random() * DUNGEON_W);
+    const gy = Math.floor(Math.random() * DUNGEON_H);
+    const tmpl = roomTemplates[dungeon[gy][gx].template].tiles;
+
+    let options = [];
+    for (let ry = 0; ry < ROOM_ROWS; ry++) {
+        for (let rx = 0; rx < ROOM_COLS; rx++) {
+            if (tmpl[ry][rx] === 1) options.push({tx: rx, ty: ry});
+        }
+    }
+    const chosen = options[Math.floor(Math.random() * options.length)];
+    dungeon[gy][gx].hasGoal  = true;
+    dungeon[gy][gx].goalTile = chosen;
+}
+
+/* CZYSZCZENIE POKOJU */
+function clearRoomView() {
+    document.querySelectorAll(
+        ".floor, .door, .trader, .tree, .flower, .cactus, .rock"
+    ).forEach(el => el.remove());
+
+    currentTrader = null;
+    goalEl.style.display = "none";
+}
+
+
+
+
+
+/* POMOCNICZE: czy na brzegu jest podłoga (do drzwi) */
+function hasFloor(tmpl, x, y) {
+    return tmpl[y] && tmpl[y][x] === 1;
+}
+
+/* WEJŚCIE DO KONKRETNEGO POKOJU */
+function enterRoom(rx, ry, fromDir = null) {
+currentDoors = [];   // USUŃ stare drzwi natychmiast!
+
+    currentRoomX = rx;
+    currentRoomY = ry;
+
+
+visited[ry][rx] = true;
+updateMiniMap();
+
+    clearRoomView();
+
+    const roomData = dungeon[ry][rx];
+    const tmpl = roomTemplates[roomData.template].tiles;
+
+    // rysujemy podłogę (KAŻDY kafelek = jeden kwadrat)
+    currentWalkable = [];
+    for (let ty = 0; ty < ROOM_ROWS; ty++) {
+        for (let tx = 0; tx < ROOM_COLS; tx++) {
+            if (tmpl[ty][tx] === 1) {
+                const x = tx * TILE_SIZE;
+                const y = ty * TILE_SIZE;
+
+                const tile = document.createElement("div");
+                tile.className = "floor";
+                tile.style.left   = x + "px";
+                tile.style.top    = y + "px";
+                tile.style.width  = TILE_SIZE + "px";
+                tile.style.height = TILE_SIZE + "px";
+                world.appendChild(tile);
+if (worldType === "desert") {
+    tile.style.background = "#e7d27a"; // jasny żółty piasek
+}
+if (worldType === "darkforest") {
+    tile.style.background = "#1f3b1f"; // ciemna zieleń
+}
+
+                currentWalkable.push({
+                    x1: x,
+                    y1: y,
+                    x2: x + TILE_SIZE,
+                    y2: y + TILE_SIZE
+                });
+            }
+        }
+    }
+
+    // drzwi – tylko jeśli na brzegu jest podłoga i istnieje sąsiad
+    currentDoors = [];
+
+    // ───── DRZWI GÓRA ─────
+if (ry > 0) {
+    const col = findEdgeFloor(tmpl, "top");
+    if (col !== null) {
+        const x = col * TILE_SIZE + TILE_SIZE/2 - 40;
+        const y = 0;
+
+        const d = document.createElement("div");
+        d.className = "door";
+        d.style.width = "80px";
+        d.style.height = "24px";
+        d.style.left = x + "px";
+        d.style.top = y + "px";
+
+        world.appendChild(d);
+
+        currentDoors.push({
+            left: x, top: y, width: 80, height: 24,
+            targetX: rx,
+            targetY: ry - 1,
+            enterFrom: "S"
+        });
+    }
+}
+
+
+// ───── DRZWI DÓŁ ─────
+if (ry < DUNGEON_H - 1) {
+    const col = findEdgeFloor(tmpl, "bottom");
+    if (col !== null) {
+        const x = col * TILE_SIZE + TILE_SIZE/2 - 40;
+        const y = ROOM_H - 24;
+
+        const d = document.createElement("div");
+        d.className = "door";
+        d.style.width = "80px";
+        d.style.height = "24px";
+        d.style.left = x + "px";
+        d.style.top = y + "px";
+
+        world.appendChild(d);
+
+        currentDoors.push({
+            left: x, top: y, width: 80, height: 24,
+            targetX: rx,
+            targetY: ry + 1,
+            enterFrom: "N"
+        });
+    }
+}
+
+
+// ───── DRZWI LEWO ─────
+if (rx > 0) {
+    const row = findEdgeFloor(tmpl, "left");
+    if (row !== null) {
+        const x = 0;
+        const y = row * TILE_SIZE + TILE_SIZE/2 - 40;
+
+        const d = document.createElement("div");
+        d.className = "door";
+        d.style.width = "24px";
+        d.style.height = "80px";
+        d.style.left = x + "px";
+        d.style.top = y + "px";
+
+        world.appendChild(d);
+
+        currentDoors.push({
+            left: x, top: y, width: 24, height: 80,
+            targetX: rx - 1,
+            targetY: ry,
+            enterFrom: "E"
+        });
+    }
+}
+
+
+// ───── DRZWI PRAWO ─────
+if (rx < DUNGEON_W - 1) {
+    const row = findEdgeFloor(tmpl, "right");
+    if (row !== null) {
+        const x = ROOM_W - 24;
+        const y = row * TILE_SIZE + TILE_SIZE/2 - 40;
+
+        const d = document.createElement("div");
+        d.className = "door";
+        d.style.width = "24px";
+        d.style.height = "80px";
+        d.style.left = x + "px";
+        d.style.top = y + "px";
+
+        world.appendChild(d);
+
+        currentDoors.push({
+            left: x, top: y, width: 24, height: 80,
+            targetX: rx + 1,
+            targetY: ry,
+            enterFrom: "W"
+        });
+    }
+}
+
+
+
+    // Ustaw pozycję gracza w pokoju
+switch (fromDir) {
+    case "N": // weszliśmy z góry
+        playerX = ROOM_W / 2 - 20;
+        playerY = TILE_SIZE;
+        break;
+
+    case "S": // weszliśmy z dołu
+        playerX = ROOM_W / 2 - 20;
+        playerY = ROOM_H - TILE_SIZE - 40;
+        break;
+
+    case "W": // weszliśmy z lewej
+        playerX = TILE_SIZE;
+        playerY = ROOM_H / 2 - 20;
+        break;
+
+    case "E": // weszliśmy z prawej
+        playerX = ROOM_W - TILE_SIZE - 40;
+        playerY = ROOM_H / 2 - 20;
+        break;
+
+    default: // start gry – środek pokoju
+        playerX = ROOM_W / 2 - 20;
+        playerY = ROOM_H / 2 - 20;
+}
+// 🔥 TERAZ currentWalkable już istnieje — można szukać bezpiecznej podłogi
+const safe = findNearestWalkableTile(playerX, playerY);
+if (safe) {
+    playerX = safe.x;
+    playerY = safe.y;
+}
+if (worldType === "forest") {
+    spawnTrees();
+    spawnFlowers();
+}
+else if (worldType === "desert") {
+    spawnCactus();
+    spawnSandRocks();
+}
+else if (worldType === "darkforest") {
+    spawnDarkForestTrees();
+}
+
+spawnEnemies();
+spawnTrader();
+
+
+// jeśli to pokój bossa → pokaż bossbar
+if (dungeon[ry][rx].isBossRoom) {
+    document.getElementById("bossBar").style.display = "block";
+// 🔥 USTAW HP BOSSBARU NA PEŁNE 100%
+const boss = currentEnemies.find(e => e.isBoss);
+if (boss) {
+    const percent = boss.hp / boss.maxHP;
+    document.getElementById("bossBarFill").style.width = (percent * 100) + "%";
+}
+
+// jeśli pokój bossa jest wyczyszczony i nie ma portalu → rysujemy go ponownie
+if (dungeon[ry][rx].isBossRoom && dungeon[ry][rx].isBossRoomCleared) {
+
+    // sprawdzamy czy portal istnieje
+    const portalExists = document.querySelector(".portal");
+
+    if (!portalExists) {
+        // DOMYŚLNA POZYCJA W ŚRODKU POKOJU
+        spawnPortal(ROOM_W / 2, ROOM_H / 2);
+    }
+}
+
+} else {
+    document.getElementById("bossBar").style.display = "none";
+}
+
+// 🔥 odśwież minimapę po ustaleniu, czy ten pokój jest pokojem walki
+updateMiniMap();
+
+updatePlayerPosition();
+updateCamera();
+
+
+
+    // jeśli w tym pokoju jest cel
+    if (roomData.hasGoal) {
+        const t = roomData.goalTile;
+        const gx = t.tx * TILE_SIZE + TILE_SIZE/2 - 12;
+        const gy = t.ty * TILE_SIZE + TILE_SIZE/2 - 12;
+        goalEl.style.left = gx + "px";
+        goalEl.style.top  = gy + "px";
+        goalEl.style.display = "block";
+    }
+}
+
+/* WYGRANA */
+goalEl.addEventListener("click", () => {
+    alert("🎉 Wygrałeś grę!");
+});
+
+/* RUCH GRACZA I KAMERA */
+function updatePlayerPosition() {
+    player.style.left = playerX + "px";
+    player.style.top  = playerY + "px";
+}
+
+function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+    return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+}
+
+function updateCamera() {
+    camX = playerX + 20 - window.innerWidth  / 2;
+    camY = playerY + 20 - window.innerHeight / 2;
+    world.style.transform = `translate(${-camX}px, ${-camY}px)`;
+}
+
+
+function gameLoop() {
+    const speed = 6;
+    const now = performance.now();
+    const delta = now - (lastTime || now);
+    lastTime = now;
+
+    /* -------------------------------------------------------
+       🔥 TRUCIZNA – działa tylko, jeśli gracz żyje!
+    -------------------------------------------------------- */
+    if (poisonTime > 0) {
+        poisonTime -= delta;
+
+        // co ~500ms zabiera HP
+        if (Math.floor(poisonTime / 500) % 2 === 0) {
+            playerHP -= 0.2;
+            updateHP();
+        }
+    }
+
+    /* -------------------------------------------------------
+       🔥 DETEKCJA ŚMIERCI GRACZA
+       (musi być PRZED WSZYSTKIM!)
+    -------------------------------------------------------- */
+    if (playerHP <= 0) {
+        playerHP = 0;
+        updateHP();
+
+        alert("💀 Przegrałeś! Spróbuj ponownie!");
+
+        location.reload(); // restart gry
+        return; // zatrzymuje pętlę
+    }
+
+    /* -------------------------------------------------------
+       🔥 RUCH GRACZA
+    -------------------------------------------------------- */
+    let nx = playerX;
+    let ny = playerY;
+
+    if (keys["ArrowUp"] || keys["w"])    ny -= speed;
+    if (keys["ArrowDown"] || keys["s"])  ny += speed;
+    if (keys["ArrowLeft"] || keys["a"])  nx -= speed;
+    if (keys["ArrowRight"] || keys["d"]) nx += speed;
+
+    if (canWalk(nx, ny)) {
+        playerX = nx;
+        playerY = ny;
+    }
+
+    /* -------------------------------------------------------
+       🔥 AKTUALIZACJE SYSTEMÓW
+    -------------------------------------------------------- */
+    updateProjectiles();
+    updateAimLine();
+    updateEnemyProjectiles();
+    updateEnemies(delta);
+    updateCatFollower(delta);
+
+    /* -------------------------------------------------------
+       🔥 DRZWI
+    -------------------------------------------------------- */
+    for (const door of currentDoors) {
+
+        // gracz musi stać na podłodze
+        if (!canWalk(playerX, playerY)) continue;
+
+        if (rectsOverlap(playerX, playerY, 40, 40,
+                         door.left, door.top, door.width, door.height)) {
+
+            // blokada przejścia, jeśli wróg żyje
+            if (enemiesAlive()) continue;
+
+            enterRoom(door.targetX, door.targetY, door.enterFrom);
+            break;
+        }
+    }
+
+    /* -------------------------------------------------------
+       🔥 KAMERA + GRACZ
+    -------------------------------------------------------- */
+    updatePlayerPosition();
+    updateCamera();
+
+    requestAnimationFrame(gameLoop);
+}
+/* START GRY PO WYBORZE POSTACI */
+document.getElementById("wizard").onclick = () => {
+    chooseScreen.style.display = "none";
+    gameContainer.style.display = "block";
+
+    buildDungeon();
+    chooseBossRoom();
+    enterRoom(currentRoomX, currentRoomY);
+    updateMiniMap();
+
+    gameLoop();   // ✔ gra startuje dopiero po zbudowaniu świata
+};
+
+
+
+function updateAimLine() {
+    // pozycja gracza w przestrzeni świata
+    const gx = playerX + 20;
+    const gy = playerY + 20;
+
+    // pozycja myszy względem świata
+    const mx = mouseX + camX;
+    const my = mouseY + camY;
+
+    const dx = mx - gx;
+    const dy = my - gy;
+
+    const angle = Math.atan2(dy, dx);
+
+    // ustaw celownik NA GRACZU
+    aimLine.style.left = gx + "px";
+    aimLine.style.top  = gy + "px";
+    aimLine.style.transform = `rotate(${angle}rad)`;
+}
+
+
+
+gameContainer.addEventListener("mousedown", e => {
+    if (e.button !== 0) return;  // ✔ tylko LEWY przycisk strzela
+    castSpellMouse();
+});
+
+function castSpellMouse() {
+    const slot = selectedSpell;
+    const spell = spellsInSlots[slot];
+
+    if (!spell) return;
+    if (spellCooldown[slot]) return;
+
+    // --- RZUCENIE CZARU ---
+    if (spell === "czar4.png") {
+        // leczenie
+        playerHP = Math.min(playerHP + 15, 100);
+        updateHP();
+    }
+    else if (spell === "czar2.png") {
+        fireFireSpell(slot);
+    }
+    else if (spell === "czar3.png") {
+        createMirrorPortal();
+    }
+    else {
+        fireSpellTowardMouse(slot); // czar 1
+    }
+
+    // --- COOLDOWN ---
+    let cd = SPELL_COOLDOWNS[spell];
+
+    // 🔥 ulepszenie cooldownu DZIAŁA TYLKO na czary 1–3
+    if (spell !== "czar4.png") {
+        cd -= bonusCooldown * 1000;
+        if (cd < 2000) cd = 2000;
+    }
+
+    spellCooldown[slot] = true;
+
+    const cover = document.querySelector(`#slot${slot} .cooldownCover`);
+    cover.style.display = "block";
+
+    setTimeout(() => {
+        spellCooldown[slot] = false;
+        cover.style.display = "none";
+    }, cd);
+}
+
+
+
+
+
+
+function fireBlueBallTowardMouse() {
+    const gx = playerX + 20;
+    const gy = playerY + 20;
+
+    const mx = mouseX + camX;
+    const my = mouseY + camY;
+
+    const dx = mx - gx;
+    const dy = my - gy;
+
+    const len = Math.hypot(dx, dy);
+    const vx = (dx / len) * 8;
+    const vy = (dy / len) * 8;
+
+    const ball = document.createElement("img");
+    ball.src = "pocisk1.png";
+    ball.style.position = "absolute";
+
+    const w = 120;
+    const h = 60;
+
+    ball.style.width = w + "px";
+    ball.style.height = h + "px";
+
+    // 🔥 POPRAWKA — ustaw pocisk tak, aby środek był na graczu
+    ball.style.left = (gx - w/2) + "px";
+    ball.style.top  = (gy - h/2) + "px";
+
+    ball.style.transform = `rotate(${Math.atan2(vy, vx)}rad)`;
+    ball.style.zIndex = 20;
+    world.appendChild(ball);
+
+    projectiles.push({
+        el: ball,
+        x: gx - w/2,
+        y: gy - h/2,
+        dx: vx,
+        dy: vy
+    });
+}
+
+
+
+function findNearestWalkableTile(x, y) {
+    let best = null;
+    let bestDist = Infinity;
+
+    for (const t of currentWalkable) {
+        const cx = (t.x1 + t.x2) / 2;
+        const cy = (t.y1 + t.y2) / 2;
+
+        const dx = cx - x;
+        const dy = cy - y;
+        const dist = dx*dx + dy*dy;
+
+        if (dist < bestDist) {
+            bestDist = dist;
+            best = { x: cx - 20, y: cy - 20 }; // -20 to środek gracza
+        }
+    }
+
+    return best;
+}
+function enemiesAlive() {
+    return currentEnemies.length > 0;
+}
+
+function updateEnemies(delta) {
+    for (let i = currentEnemies.length - 1; i >= 0; i--) {
+        const e = currentEnemies[i];
+
+        // 🔥 JEŚLI ELEMENT DOM NIE ISTNIEJE → USUŃ WROGA
+        if (!e.el || !e.el.parentNode) {
+            currentEnemies.splice(i, 1);
+            continue;
+        }
+
+
+
+
+        /* =======================================================
+           1. BOSS – musi być obsłużony jako pierwszy!
+        ======================================================= */
+        if (e.isBoss) {
+            updateBossLogic(e, delta);
+            continue; 
+        }
+
+        /* =======================================================
+           2. STRZELAJĄCY WRÓG – osobna logika
+        ======================================================= */
+        if (e.type.isShooter) {
+            const dx = playerX - e.x;
+            const dy = playerY - e.y;
+            const dist = Math.hypot(dx, dy);
+
+            // strzela tylko jeśli gracz w zasięgu
+            if (dist < e.type.attackRange) {
+                e.lastShot = (e.lastShot || 0) + delta;
+
+                if (e.lastShot >= e.type.fireRate) {
+                    e.lastShot = 0;
+                    enemyFireProjectile(e);
+                }
+            }
+
+            continue; 
+        }
+// ⭐ TUMBLEWEED – ruch i odbijanie
+if (e.type.tumble) {
+
+    // jeśli pierwszy raz — nadaj mu losowy kierunek
+    if (!e.vx) {
+        const angle = Math.random() * Math.PI * 2;
+        e.vx = Math.cos(angle) * e.type.speed;
+        e.vy = Math.sin(angle) * e.type.speed;
+    }
+
+    // ruch
+    e.x += e.vx;
+    e.y += e.vy;
+
+    // odbicia od ścian pokoju 5×5 TILE_SIZE
+    const roomW = ROOM_COLS * TILE_SIZE;
+    const roomH = ROOM_ROWS * TILE_SIZE;
+if (e.x <= 0) {
+    e.x = 0;
+    e.vx *= -1;
+} else if (e.x >= roomW - 40) {
+    e.x = roomW - 40;
+    e.vx *= -1;
+}
+
+if (e.y <= 0) {
+    e.y = 0;
+    e.vy *= -1;
+} else if (e.y >= roomH - 40) {
+    e.y = roomH - 40;
+    e.vy *= -1;
+}
+
+
+    // ustaw pozycję
+    e.el.style.left = e.x + "px";
+    e.el.style.top  = e.y + "px";
+
+    // pasek HP
+    if (e.hpBar) {
+        e.hpBar.style.left = e.x + "px";
+        e.hpBar.style.top  = (e.y - 10) + "px";
+    }
+
+ // ⭐ zadaje obrażenia tylko raz na sekundę
+if (
+    e.x < playerX + 40 &&
+    e.x + 40 > playerX &&
+    e.y < playerY + 40 &&
+    e.y + 40 > playerY
+) {
+    const now = performance.now();
+    if (now - e.lastDamageTime >= 1000) {  // 1 sekunda odstępu
+        playerHP -= e.type.attackDamage;
+        updateHP();
+        e.lastDamageTime = now;
+    }
+}
+
+
+    continue; // bardzo ważne — nie stosuj logiki innych wrogów
+}
+// ⭐ ANTLION – pole przyciągania (wróg 40×40)
+if (e.type.isAntlion) {
+
+    const gx = playerX + 20;   // środek gracza
+    const gy = playerY + 20;
+    const ex = e.x + 20;       // środek antliona (40×40 → +20)
+    const ey = e.y + 20;
+
+    const dx = gx - ex;
+    const dy = gy - ey;
+    const dist = Math.hypot(dx, dy);
+
+    // --- rysowanie pola piasku ---
+    if (!e.field) {
+        const f = document.createElement("div");
+        f.style.position = "absolute";
+        f.style.width = (e.type.pullRange * 2) + "px";
+        f.style.height = (e.type.pullRange * 2) + "px";
+        f.style.borderRadius = "50%";
+        f.style.background = "rgba(139, 69, 19, 0.25)";
+        f.style.left = (ex - e.type.pullRange) + "px";
+        f.style.top  = (ey - e.type.pullRange) + "px";
+        f.style.zIndex = 2;
+        world.appendChild(f);
+        e.field = f;
+    }
+
+    // aktualizacja pozycji pola
+    e.field.style.left = (ex - e.type.pullRange) + "px";
+    e.field.style.top  = (ey - e.type.pullRange) + "px";
+
+    // --- PRZYCIĄGANIE GRACZA ---
+    if (dist < e.type.pullRange) {
+
+        const pullX = (dx / dist) * e.type.pullStrength;
+        const pullY = (dy / dist) * e.type.pullStrength;
+
+        playerX += pullX;
+        playerY += pullY;
+        updatePlayerPosition();
+
+        // obrażenia 1 dmg co 1.5s
+        const now = performance.now();
+        e.lastDmg = e.lastDmg || 0;
+
+        if (now - e.lastDmg >= e.type.damageCooldown) {
+            playerHP -= e.type.attackDamage;
+            updateHP();
+            e.lastDmg = now;
+        }
+    }
+
+    continue; // koniec logiki antliona
+}
+
+
+        /* =======================================================
+           3. NORMALNY WRÓG
+        ======================================================= */
+
+        // wektor do gracza
+        const dx = playerX - e.x;
+        const dy = playerY - e.y;
+        const dist = Math.hypot(dx, dy);
+
+
+
+        // ruch
+        if (!e.attackCharging) {
+            const speed = e.type.speed;
+            e.x += (dx / dist) * speed;
+            e.y += (dy / dist) * speed;
+
+            e.el.style.left = e.x + "px";
+            e.el.style.top  = e.y + "px";
+
+            if (e.hpBar) {
+                e.hpBar.style.left = e.x + "px";
+                e.hpBar.style.top  = (e.y - 10) + "px";
+            }
+        }
+
+        // WARNS – tylko jeśli wróg ma warn
+        if (e.warn) {
+            e.warn.style.left = (e.x + 20 - e.type.warnSize / 2) + "px";
+            e.warn.style.top  = (e.y + 20 - e.type.warnSize / 2) + "px";
+        }
+
+        // rozpoczęcie ładowania ataku wręcz
+        if (dist < e.type.attackRange && !e.attackCharging) {
+            e.attackCharging = true;
+            e.attackTimer = 0;
+
+            if (e.warn) e.warn.style.display = "block";
+        }
+
+        // ładowanie ataku
+   if (e.attackCharging) {
+    e.attackTimer += delta;
+
+    // ⭐ szybki czas ładowania tylko dla enemy3
+    const attackTime = (e.type === ENEMY_TYPES[2]) ? 600 : 1500;
+
+    if (e.attackTimer >= attackTime) {
+        e.attackCharging = false;
+        if (e.warn) e.warn.style.display = "none";
+
+        const gx = playerX + 20;
+        const gy = playerY + 20;
+        const ex = e.x + 20;
+        const ey = e.y + 20;
+
+        if (Math.hypot(gx - ex, gy - ey) < e.type.attackRange) {
+            playerHP -= e.type.attackDamage;
+
+if (e.type.poison) {
+    poisonTime = 5000; // 5 sekund
+}
+
+updateHP();
+
+        }
+    }
+
+
+        }
+    }
+}
+function avoidTrees(e) {
+    for (const t of currentTrees) {
+        const tx = t.x1 + 80; // środek drzewa
+        const ty = t.y1 + 80;
+
+        const dx = e.x - tx;
+        const dy = e.y - ty;
+        const dist = Math.hypot(dx, dy);
+
+        // jeśli wróg jest zbyt blisko drzewa → delikatnie odpychamy
+        if (dist < 140) {
+            const force = (140 - dist) * 0.03;
+            e.x += (dx / dist) * force;
+            e.y += (dy / dist) * force;
+        }
+    }
+}
+function spawnFlowers() {
+    currentFlowers = [];
+
+    // 2–5 kwiatków w pokoju
+    const flowerCount = Math.floor(Math.random() * 4) + 2;
+
+    for (let i = 0; i < flowerCount; i++) {
+
+        // losowy kafelek podłogi
+        const tile = currentWalkable[Math.floor(Math.random() * currentWalkable.length)];
+
+        const x = tile.x1 + TILE_SIZE/2 - 30; // środek kafelka
+        const y = tile.y1 + TILE_SIZE/2 - 30;
+
+        // nie pozwalamy generować na drzwiach
+        const tooCloseToDoors = currentDoors.some(d => {
+            return Math.abs(d.left - x) < 120 && Math.abs(d.top - y) < 120;
+        });
+        if (tooCloseToDoors) continue;
+
+        const flower = document.createElement("div");
+        flower.className = "flower";
+        flower.style.left = x + "px";
+        flower.style.top  = y + "px";
+
+        world.appendChild(flower);
+
+        currentFlowers.push({
+            el: flower,
+            x1: x,
+            y1: y,
+            x2: x + 60,
+            y2: y + 60
+        });
+    }
+}
+let spellMenuOpen = false;
+
+// otwórz menu pod E
+document.addEventListener("keydown", e => {
+    if (e.key === "e" || e.key === "E") {
+        spellMenuOpen = !spellMenuOpen;
+
+        if (spellMenuOpen) {
+            updateMenuImages();
+            document.getElementById("spellMenu").style.display = "block";
+        } else {
+            document.getElementById("spellMenu").style.display = "none";
+        }
+    }
+});
+
+
+// zamykanie
+function closeSpellMenu() {
+    spellMenuOpen = false;
+    document.getElementById("spellMenu").style.display = "none";
+}
+
+// wybór slotu
+document.querySelectorAll(".slotOption").forEach(opt => {
+    opt.addEventListener("click", () => {
+        const slot = opt.dataset.slot;
+        document.querySelector("#slot" + slot + " img").src = "czar1.png";
+        closeSpellMenu();
+    });
+});
+function updateMenuImages() {
+    ["menuSpell1","menuSpell2","menuSpell3"].forEach((id,i)=>{
+        const img = document.getElementById(id);
+        const spell = spellsInSlots[i+1];
+
+        if (spell) {
+            img.src = spell;
+            img.style.opacity = "1";
+        } else {
+            img.src = "";       // NIC
+            img.style.opacity = "0.3";  // wygląda jak puste miejsce
+        }
+    });
+}
+
+document.querySelectorAll(".menuSpell").forEach((img, index) => {
+    img.addEventListener("click", () => {
+        if (!spellsInSlots[index+1]) return;  // NIE KLIKASZ pustych
+
+        pickedSpell = index + 1;
+
+        // opcjonalnie podświetlenie
+        document.querySelectorAll(".menuSpell").forEach(m => m.style.borderColor="#555");
+        img.style.borderColor = "yellow";
+    });
+});
+
+document.querySelectorAll(".menuSlot").forEach(btn => {
+    btn.addEventListener("click", () => {
+        if (!pickedSpell) return;
+
+        const target = btn.dataset.slot;
+
+        // zamiana
+        let temp = spellsInSlots[target];
+        spellsInSlots[target] = spellsInSlots[pickedSpell];
+        spellsInSlots[pickedSpell] = temp;
+
+        // aktualizacja HUD
+        document.querySelector("#slot" + target + " img").src = spellsInSlots[target];
+        document.querySelector("#slot" + pickedSpell + " img").src = spellsInSlots[pickedSpell];
+
+        pickedSpell = null;
+        updateMenuImages();
+    });
+});
+
+function fireSpellTowardMouse(slot) {
+// --- NOWY CZAR LECZENIA ---
+
+
+// --- NOWY OGNIWY CZAR ---
+if (spellsInSlots[slot] === "czar2.png") {
+    fireFireSpell(slot);
+    return;
+}
+
+// --- NOWY CZAR: Lustrzany Portal ---
+if (spellsInSlots[slot] === "czar3.png") {
+    createMirrorPortal();
+    return;
+}
+
+    const gx = playerX + 20;
+    const gy = playerY + 20;
+
+    const mx = mouseX + camX;
+    const my = mouseY + camY;
+
+    const dx = mx - gx;
+    const dy = my - gy;
+
+    const len = Math.hypot(dx, dy);
+    const vx = (dx / len) * 8;
+    const vy = (dy / len) * 8;
+
+    const ball = document.createElement("img");
+    ball.src = "pocisk1.png";
+    ball.style.position = "absolute";
+
+    const w = 120;
+    const h = 60;
+
+    ball.style.width = w + "px";
+    ball.style.height = h + "px";
+
+    ball.style.left = (gx - w/2) + "px";
+    ball.style.top  = (gy - h/2) + "px";
+
+    ball.style.transform = `rotate(${Math.atan2(vy, vx)}rad)`;
+    ball.style.zIndex = 20;
+    world.appendChild(ball);
+
+    // ⭐ NAJWAŻNIEJSZE: zapis slotu
+    projectiles.push({
+        el: ball,
+        x: gx - w/2,
+        y: gy - h/2,
+        dx: vx,
+        dy: vy,
+        slot: slot   // ← teraz cooldown działa dla KAŻDEGO osobno
+    });
+}
+
+function chooseBossRoom() {
+    let bx, by;
+
+    while (true) {
+        bx = Math.floor(Math.random() * DUNGEON_W);
+        by = Math.floor(Math.random() * DUNGEON_H);
+
+        // nie może być to pokój startowy (1,1)
+        if (bx === 1 && by === 1) continue;
+
+        // pokój z bossem musi być kwadratowy (template index 0)
+        if (dungeon[by][bx].template !== 0) continue;
+
+        break;
+    }
+
+    dungeon[by][bx].isBossRoom = true;
+}
+function spawnBoss() {
+    const tile = currentWalkable[Math.floor(Math.random() * currentWalkable.length)];
+    const x = tile.x1 + TILE_SIZE/2 - 80;
+    const y = tile.y1 + TILE_SIZE/2 - 80;
+// ⭐ Mirror Boss – 20% szansy, tylko w lustrzanym świecie
+if (inMirrorWorld && Math.random() < 0.20) {
+    spawnMirrorBoss(x, y);
+    return;
+}
+
+    // ⭐ NOWOŚĆ – szansa na nowego bossa
+    if (Math.random() < 0.33) {   // 33% szansy
+        spawnPlantBoss(x, y);
+        return;
+    }
+
+   if (worldType === "desert") {
+    // 50% na skorpiona, 50% na Antlion Kinga
+    if (Math.random() < 0.5) {
+        spawnDesertBoss(x, y);
+    } else {
+        spawnAntlionKing(x, y);
+    }
+    return;
+}
+
+
+    // klasyczne losowanie lasowe
+    const pick = Math.random() < 0.5 ? "old" : "butterfly";
+    if (pick === "old") spawnOldBoss(x, y);
+    else spawnButterflyBoss(x, y);
+}
+
+
+
+function updateBossLogic(boss, delta) {
+if (boss.bossType === "desert") {
+    return updateDesertBoss(boss, delta);
+}
+if (boss.bossType === "mirror") {
+    return updateMirrorBoss(boss, delta);
+}
+
+if (boss.bossType === "plant") {
+    return updatePlantBoss(boss, delta);
+}
+
+    // 👹 STARY BOSS – SZARŻA
+    if (boss.bossType === "old") {
+
+        return updateOldBoss(boss, delta);
+    }
+if (boss.bossType === "antlionKing") {
+    return updateAntlionKing(boss, delta);
+}
+
+    // 🦋 NOWY BOSS – MOTYLEK
+   if (boss.bossType === "butterfly") {
+
+        return updateButterflyBoss(boss, delta);
+    }
+}
+
+function enemyFireProjectile(enemy) {
+    const gx = playerX + 20;
+    const gy = playerY + 20;
+
+    const ex = enemy.x + 20;
+    const ey = enemy.y + 20;
+
+    const dx = gx - ex;
+    const dy = gy - ey;
+    const len = Math.hypot(dx, dy);
+
+    const vx = (dx / len) * 4;  // prędkość
+    const vy = (dy / len) * 4;
+
+    const ball = document.createElement("img");
+    ball.src = "pocisk2.png";  // zielony pocisk
+    ball.style.position = "absolute";
+    ball.style.width = "40px";
+    ball.style.height = "40px";
+    ball.style.left = (ex - 20) + "px";
+    ball.style.top  = (ey - 20) + "px";
+    ball.style.zIndex = 20;
+
+    world.appendChild(ball);
+
+    enemyProjectiles.push({
+        el: ball,
+        x: ex - 20,
+        y: ey - 20,
+        dx: vx,
+        dy: vy,
+        damage: enemy.type.attackDamage
+    });
+}
+function updateEnemyProjectiles() {
+    for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+        const p = enemyProjectiles[i];
+
+        p.x += p.dx;
+        p.y += p.dy;
+
+        p.el.style.left = p.x + "px";
+        p.el.style.top  = p.y + "px";
+
+        // Kolizja z graczem
+        if (
+            p.x < playerX + 40 &&
+            p.x + 40 > playerX &&
+            p.y < playerY + 40 &&
+            p.y + 40 > playerY
+        ) {
+            playerHP -= p.damage;
+            updateHP();
+
+            p.el.remove();
+            enemyProjectiles.splice(i, 1);
+            continue;
+        }
+
+        // Usunięcie gdy za daleko
+        if (p.x < -5000 || p.x > 5000 || p.y < -5000 || p.y > 5000) {
+            p.el.remove();
+            enemyProjectiles.splice(i, 1);
+        }
+    }
+}
+function updateGold() {
+    const goldText = document.querySelector("#goldHUD #goldAmount");
+    if (goldText) goldText.textContent = gold;
+}
+
+function spawnTrader() {
+
+    // Jeśli handlarz już istnieje i jesteśmy w jego pokoju → narysuj go ponownie
+    if (traderSpawned && traderRoom &&
+        traderRoom.x === currentRoomX &&
+        traderRoom.y === currentRoomY) {
+
+        const tile = currentWalkable[Math.floor(Math.random() * currentWalkable.length)];
+        const x = tile.x1 + TILE_SIZE/2 - 20;
+        const y = tile.y1 + TILE_SIZE/2 - 20;
+
+        const t = document.createElement("div");
+        t.className = "trader";
+        t.style.left = x + "px";
+        t.style.top  = y + "px";
+
+        world.appendChild(t);
+        currentTrader = { el: t, x, y };
+        return;
+    }
+
+    // Jeśli handlarz już został wylosowany wcześniej → nie spawnujemy nowego
+    if (traderSpawned) return;
+
+    const room = dungeon[currentRoomY][currentRoomX];
+    if (room.isFightRoom) return;
+
+    // Szansa 50% (możesz zmienić)
+    if (Math.random() > 0.50) return;
+
+    // TWORZYMY handlarza
+    const tile = currentWalkable[Math.floor(Math.random() * currentWalkable.length)];
+    const x = tile.x1 + TILE_SIZE/2 - 20;
+    const y = tile.y1 + TILE_SIZE/2 - 20;
+
+    const t = document.createElement("div");
+    t.className = "trader";
+    t.style.left = x + "px";
+    t.style.top  = y + "px";
+
+    world.appendChild(t);
+
+    currentTrader = { el: t, x, y };
+
+    traderSpawned = true;
+    traderRoom = { x: currentRoomX, y: currentRoomY }; // ZAPISUJEMY lokalizację handlarza
+}
+document.addEventListener("keydown", e => {
+    if (e.key === " ") {
+        // jeśli sklep otwarty → zamknij
+        if (shopOpen) {
+            closeShop();
+            return;
+        }
+
+        if (!currentTrader) return;
+
+        const dist = Math.hypot(
+            (playerX - currentTrader.x),
+            (playerY - currentTrader.y)
+        );
+
+        if (dist < 120) {
+            openShop();
+        }
+    }
+});
+function openShop() {
+    shopOpen = true;
+    document.getElementById("shopMenu").style.display = "block";
+}
+
+function closeShop() {
+    shopOpen = false;
+    document.getElementById("shopMenu").style.display = "none";
+    document.getElementById("shopSlots").innerHTML = "";
+}
+document.getElementById("buySpell1").onclick = () => {
+    if (!shopOpen) return;
+
+    if (gold < 30) {
+        alert("Masz za mało złota!");
+        return;
+    }
+
+    const cont = document.getElementById("shopSlots");
+    cont.innerHTML = "<h3>Wybierz slot na czar:</h3>";
+
+    // ⭐ Można nadpisywać sloty 1–3
+    for (let s = 1; s <= 3; s++) {
+        const btn = document.createElement("div");
+        btn.className = "shopItem";
+        btn.textContent = `Slot ${s} (teraz: ${spellsInSlots[s] || "pusty"})`;
+
+        btn.onclick = () => {
+            gold -= 30;
+            updateGold();
+
+            spellsInSlots[s] = "czar1.png";
+            document.querySelector(`#slot${s} img`).src = "czar1.png";
+
+            closeShop();
+        };
+
+        cont.appendChild(btn);
+    }
+};
+
+
+
+
+document.getElementById("buyCat").onclick = () => {
+    if (!shopOpen) return;
+
+    if (gold < 10) {
+        alert("Za mało złota!");
+        return;
+    }
+
+    gold -= 10;
+    updateGold();
+
+    // dodajemy item do listy
+    magicItems.push("catfriend.png");
+    updateItemHUD();
+
+    spawnCatFollower();
+
+    closeShop();
+};
+
+let catFollower = null;
+
+function spawnCatFollower() {
+    if (catFollower && catFollower.el) catFollower.el.remove();
+
+    const cat = document.createElement("img");
+    cat.src = "cat.png";
+    cat.style.position = "absolute";
+    cat.style.width = "40px";
+    cat.style.height = "40px";
+    cat.style.zIndex = 9;
+
+    world.appendChild(cat);
+
+    catFollower = {
+        el: cat,
+        x: playerX - 50,
+        y: playerY - 50,
+        attackCooldown: 0
+    };
+}
+
+function updateCatFollower(delta) {
+    if (!catFollower) return;
+
+    let targetX, targetY;
+
+    // 🟦 JEŚLI SĄ WROGOWIE — kot szuka najbliższego
+    if (currentEnemies.length > 0) {
+        let nearest = null;
+        let bestDist = Infinity;
+
+        for (const e of currentEnemies) {
+            const dx = e.x - catFollower.x;
+            const dy = e.y - catFollower.y;
+            const dist = dx*dx + dy*dy;
+            if (dist < bestDist) {
+                bestDist = dist;
+                nearest = e;
+            }
+        }
+
+        targetX = nearest.x;
+        targetY = nearest.y;
+    }
+
+    // 🟧 JEŚLI NIE MA WROGÓW — kot idzie za graczem
+    else {
+        targetX = playerX;
+        targetY = playerY;
+    }
+
+    // RUCH W KIERUNKU CELU
+    const dx = targetX - catFollower.x;
+    const dy = targetY - catFollower.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist > 20) {
+        catFollower.x += dx / dist * 2.5;  // 2.5 = wolniejszy i ładniejszy ruch
+        catFollower.y += dy / dist * 2.5;
+    }
+
+    catFollower.el.style.left = catFollower.x + "px";
+    catFollower.el.style.top  = catFollower.y + "px";
+
+    // ZARZĄDZANIE ATAKAMI
+    catFollower.attackCooldown -= delta;
+
+    if (currentEnemies.length > 0 && catFollower.attackCooldown <= 0) {
+        attackWithCat();
+        catFollower.attackCooldown = 1300; // 🐱 wolniejszy atak: 1.3 sekundy
+    }
+}
+
+function attackWithCat() {
+    if (!currentEnemies.length) return;
+
+    for (const e of currentEnemies) {
+
+        // hitbox dla bossa większy
+        const hitRange = e.isBoss ? 160 : 40;
+
+        const dx = e.x - catFollower.x;
+        const dy = e.y - catFollower.y;
+        const dist = Math.hypot(dx, dy);
+
+        const attackDist = e.isBoss ? 180 : 110;
+
+        if (dist < attackDist) {
+
+            // niebieski warn
+            const warn = document.createElement("div");
+            warn.style.position = "absolute";
+            warn.style.width = "120px";
+            warn.style.height = "120px";
+            warn.style.borderRadius = "50%";
+            warn.style.background = "rgba(0,150,255,0.25)";
+            warn.style.left = (e.x + 20 - 60) + "px";
+            warn.style.top  = (e.y + 20 - 60) + "px";
+            warn.style.zIndex = 2;
+            world.appendChild(warn);
+            setTimeout(() => warn.remove(), 200);
+
+            // obrażenia
+            e.hp -= 1;
+
+            // aktualizacja paska HP
+            if (e.isBoss) {
+                const percentBoss = e.hp / e.maxHP;
+                document.getElementById("bossBarFill").style.width = (percentBoss * 100) + "%";
+            } else if (e.hpFill) {
+                const percent = e.hp / e.type.maxHP;
+                e.hpFill.style.width = (percent * 100) + "%";
+            }
+
+            // efekt trafienia
+            e.el.style.filter = "brightness(2)";
+            setTimeout(() => e.el.style.filter = "brightness(1)", 100);
+
+            // odpadniecie
+          if (e.hp <= 0) {
+
+    // 🎉 nagroda za pokonanego wroga przez kota
+    gold += 10;
+    updateGold();
+
+
+                e.el.remove();
+                if (e.warn) e.warn.remove();
+                if (e.hpBar) e.hpBar.remove();
+                currentEnemies.splice(currentEnemies.indexOf(e), 1);
+            }
+
+            return;
+        }
+    }
+}
+function spawnPortal(x, y) {
+    const portal = document.createElement("div");
+    portal.className = "portal";
+    portal.style.left = (x - 60) + "px"; 
+    portal.style.top  = (y - 60) + "px";
+
+    world.appendChild(portal);
+
+    portal.addEventListener("click", () => {
+        startNextLevel();
+    });
+}
+function startNextLevel() {
+    document.querySelectorAll(".portal").forEach(p => p.remove());
+
+    worldLevel++;
+
+    if (worldLevel >= 5) {
+    worldType = "darkforest";
+} else if (worldLevel >= 3) {
+    worldType = "desert";
+} else {
+    worldType = "forest";
+}
+
+
+    buildDungeon();
+    chooseBossRoom();
+
+    currentRoomX = 1;
+    currentRoomY = 1;
+
+    enterRoom(currentRoomX, currentRoomY);
+
+    alert(worldType === "forest" ? "Nowy poziom lasu!" : "Witaj na pustyni! 🌵🔥");
+}
+
+
+
+function findEdgeFloor(tmpl, edge) {
+    let tiles = [];
+
+    if (edge === "top") {
+        for (let x = 0; x < ROOM_COLS; x++)
+            if (tmpl[0][x] === 1) tiles.push(x);
+    }
+
+    if (edge === "bottom") {
+        for (let x = 0; x < ROOM_COLS; x++)
+            if (tmpl[ROOM_ROWS-1][x] === 1) tiles.push(x);
+    }
+
+    if (edge === "left") {
+        for (let y = 0; y < ROOM_ROWS; y++)
+            if (tmpl[y][0] === 1) tiles.push(y);
+    }
+
+    if (edge === "right") {
+        for (let y = 0; y < ROOM_ROWS; y++)
+            if (tmpl[y][ROOM_COLS-1] === 1) tiles.push(y);
+    }
+
+    if (tiles.length === 0) return null;
+
+    return tiles[Math.floor(Math.random() * tiles.length)];
+}
+function spawnOldBoss(x, y) {
+    const boss = document.createElement("div");
+    boss.className = "enemy boss";
+    boss.style.width = "160px";
+    boss.style.height = "160px";
+    boss.style.background = "url('boss1.png') center/cover no-repeat";
+    boss.style.left = x + "px";
+    boss.style.top  = y + "px";
+
+    world.appendChild(boss);
+
+    currentEnemies.push({
+        el: boss,
+        x: x,
+        y: y,
+        hp: 200,
+        maxHP: 200,
+        isBoss: true,
+        bossType: "old",
+
+        chargeCooldown: 0,
+        isCharging: false,
+        hasHitThisCharge: false
+    });
+}
+
+
+function spawnButterflyBoss(x, y) {
+    const boss = document.createElement("div");
+    boss.className = "enemy boss";
+    boss.style.width = "160px";
+    boss.style.height = "160px";
+    boss.style.background = "url('boss2.png') center/contain no-repeat";
+    boss.style.left = x + "px";
+    boss.style.top  = y + "px";
+
+    world.appendChild(boss);
+
+    currentEnemies.push({
+        el: boss,
+        x: x,
+        y: y,
+        hp: 200,
+        maxHP: 200,
+        isBoss: true,
+        bossType: "butterfly",
+
+        attackTimer: 0,        // ⭐ BRAKOWAŁO!
+        attackCooldown: 1500,  // ⭐ BRAKOWAŁO!
+
+        chargeCooldown: 0,
+        isCharging: false,
+        hasHitThisCharge: false
+    });
+}
+
+function updateOldBoss(boss, delta) {
+    const gx = playerX;
+    const gy = playerY;
+    const dx = gx - boss.x;
+    const dy = gy - boss.y;
+    const dist = Math.hypot(dx, dy);
+
+    boss.chargeCooldown -= delta;
+
+    if (!boss.isCharging) {
+        boss.x += dx / dist * 1.5;
+        boss.y += dy / dist * 1.5;
+        boss.el.style.left = boss.x + "px";
+        boss.el.style.top  = boss.y + "px";
+
+        if (boss.chargeCooldown <= 0) {
+            boss.isCharging = true;
+            boss.hasHitThisCharge = false;
+
+            const len = dist;
+            boss.chargeDX = dx / len * 6;
+            boss.chargeDY = dy / len * 6;
+
+            boss.chargeTime = 700;
+            boss.el.style.filter = "brightness(2)";
+        }
+        return;
+    }
+
+    boss.chargeTime -= delta;
+    boss.x += boss.chargeDX;
+    boss.y += boss.chargeDY;
+    boss.el.style.left = boss.x + "px";
+    boss.el.style.top  = boss.y + "px";
+
+    if (!boss.hasHitThisCharge) {
+        if (rectsOverlap(boss.x, boss.y, 160, 160, playerX, playerY, 40, 40)) {
+            playerHP -= 15;
+            updateHP();
+            boss.hasHitThisCharge = true;
+        }
+    }
+
+    if (boss.chargeTime <= 0) {
+        boss.isCharging = false;
+        boss.chargeCooldown = 2000;
+        boss.el.style.filter = "brightness(1)";
+    }
+}
+function updateButterflyBoss(boss, delta) {
+    const gx = playerX;
+    const gy = playerY;
+    const dx = gx - boss.x;
+    const dy = gy - boss.y;
+    const dist = Math.hypot(dx, dy);
+
+    // ruch wolny
+    boss.x += dx / dist * 1.2;
+    boss.y += dy / dist * 1.2;
+    boss.el.style.left = boss.x + "px";
+    boss.el.style.top  = boss.y + "px";
+
+    boss.attackTimer += delta;
+
+    if (boss.attackTimer > boss.attackCooldown) {
+        boss.attackTimer = 0;
+
+        // 🎲 50/50 który atak
+        if (Math.random() < 0.5) {
+            butterflyShoot(boss);
+        } else {
+            butterflyPixelAttack();
+        }
+    }
+}
+function butterflyShoot(boss) {
+    const gx = playerX + 20;
+    const gy = playerY + 20;
+    const ex = boss.x + 80;
+    const ey = boss.y + 80;
+
+    const dx = gx - ex;
+    const dy = gy - ey;
+    const len = Math.hypot(dx, dy);
+
+    const vx = dx / len * 6;
+    const vy = dy / len * 6;
+
+    const ball = document.createElement("img");
+    ball.src = "pocisk2.png";
+    ball.style.position = "absolute";
+    ball.style.width = "40px";
+    ball.style.height = "40px";
+    ball.style.left = (ex - 20) + "px";
+    ball.style.top  = (ey - 20) + "px";
+    ball.style.zIndex = 20;
+
+    world.appendChild(ball);
+
+    enemyProjectiles.push({
+        el: ball,
+        x: ex - 20,
+        y: ey - 20,
+        dx: vx,
+        dy: vy,
+        damage: 8
+    });
+}
+function butterflyPixelAttack() {
+    // powiększamy grę
+    gameContainer.style.transform = "scale(3)";
+    gameContainer.style.transformOrigin = "center center";
+
+    // wymuszenie pixel-artowego renderowania
+    gameContainer.style.imageRendering = "pixelated";
+
+    setTimeout(() => {
+        // powrót do normalnej skali
+        gameContainer.style.transform = "scale(1)";
+        gameContainer.style.imageRendering = "auto";
+    }, 450); // 0.45 sekundy
+}
+document.getElementById("buyMirrorSpell").onclick = () => {
+    if (!shopOpen) return;
+
+    if (gold < 50) {
+        alert("Za mało złota!");
+        return;
+    }
+
+    const cont = document.getElementById("shopSlots");
+    cont.innerHTML = "<h3>Wybierz slot na Lustrzany Portal:</h3>";
+
+    // ⭐ Można nadpisywać sloty 1–3
+    for (let s = 1; s <= 3; s++) {
+        const btn = document.createElement("div");
+        btn.className = "shopItem";
+        btn.textContent = `Slot ${s} (teraz: ${spellsInSlots[s] || "pusty"})`;
+
+        btn.onclick = () => {
+            gold -= 50;
+            updateGold();
+
+            spellsInSlots[s] = "czar3.png";
+            document.querySelector(`#slot${s} img`).src = "czar3.png";
+
+            closeShop();
+        };
+
+        cont.appendChild(btn);
+    }
+};
+
+let mirrorMode = false;
+let mirrorTimer = 0;
+
+/* -------------------------------------------------
+    FUNKCJA: tworzy niebieski portal pod graczem,
+    który przenosi do lustrzanej wersji mapy
+--------------------------------------------------*/
+function createMirrorPortal() {
+    const px = playerX + 20;
+    const py = playerY + 20;
+
+    const portal = document.createElement("div");
+    portal.className = "portal";
+    portal.style.background = "radial-gradient(circle, #4ab6ff, #004a88)";
+    portal.style.boxShadow = "0 0 25px #4ab6ff";
+    portal.style.left = (px - 60) + "px";
+    portal.style.top  = (py - 60) + "px";
+
+    world.appendChild(portal);
+
+    portal.addEventListener("click", () => {
+        enterMirrorWorld();
+        portal.remove();
+    });
+
+    // portal znika po 5 sek
+    setTimeout(() => {
+        portal.remove();
+    }, 5000);
+}
+
+/* -------------------------------------------------
+    WEJŚCIE DO LUSTRA
+--------------------------------------------------*/
+function enterMirrorWorld() {
+    if (inMirrorWorld) return;
+
+    // 1. Utwórz lustrzany świat jeśli jeszcze go nie ma
+    if (!mirrorDungeon) {
+        mirrorDungeon = cloneDungeon(dungeon);
+    }
+
+    // 2. Przełącz na świat lustra
+    inMirrorWorld = true;
+
+    // 3. Zmień wygląd świata
+    world.style.filter = "invert(1) hue-rotate(180deg)";
+    world.style.transform = "scaleX(-1)";
+
+    // 4. Podmień aktualny dungeon
+    previousDungeon = dungeon;
+    dungeon = mirrorDungeon;
+
+    // 5. Wejdź do tego samego pokoju, ale w lustrzanym świecie
+    enterRoom(currentRoomX, currentRoomY);
+
+    // 6. Odbicie sterowania
+    mirrorControls = true;
+}
+
+
+/* -------------------------------------------------
+    WYJŚCIE Z LUSTRA
+--------------------------------------------------*/
+function exitMirrorWorld() {
+    mirrorMode = false;
+    mirrorControls = false;
+
+    world.style.filter = "none";
+    world.style.transform = world.style.transform.replace("scaleX(-1)", "");
+}
+function cloneDungeon(original) {
+    return original.map(row =>
+        row.map(room => ({
+            template: room.template,
+            hasGoal: room.hasGoal,
+            goalTile: room.goalTile,
+            isFightRoom: room.isFightRoom,
+            fightCleared: room.fightCleared, // zachowujemy
+            isBossRoom: room.isBossRoom,
+            bossSpawned: false
+        }))
+    );
+}
+function spawnReturnPortal(x, y) {
+    const portal = document.createElement("div");
+    portal.className = "portal";
+    portal.style.left = (x - 60) + "px";
+    portal.style.top  = (y - 60) + "px";
+
+    world.appendChild(portal);
+
+    portal.addEventListener("click", () => {
+        returnFromMirrorWorld();
+        portal.remove();
+    });
+}
+function returnFromMirrorWorld() {
+    if (!inMirrorWorld) return;
+
+    inMirrorWorld = false;
+
+    // przywróć normalną mapę
+    dungeon = previousDungeon;
+
+    mirrorControls = false;
+
+    // reset filtrów
+    world.style.filter = "none";
+    world.style.transform = "none";
+
+    // 🔥 TELEPORT DO CENTRUM ZWYKŁEJ MAPY
+    currentRoomX = 1;
+    currentRoomY = 1;
+    enterRoom(1, 1, null);
+}
+
+window.addEventListener("contextmenu", e => e.preventDefault());
+function showBossRewards(onFinish) {
+    const menu = document.getElementById("rewardMenu");
+
+    const r1 = document.getElementById("reward1");
+    const r2 = document.getElementById("reward2");
+    const r3 = document.getElementById("reward3");
+    const r4 = document.getElementById("reward4");
+
+    const rewards = [
+        {
+            text: "🔥 +5 obrażeń dla czaru 1",
+            apply: () => bonusDamage += 5
+        },
+        {
+            text: "⏱️ -2 sekundy cooldownu czaru 1",
+            apply: () => bonusCooldown += 2
+        },
+        {
+            text: "💰 +70 złota",
+            apply: () => { gold += 70; updateGold(); }
+        },
+        {
+            text: "❤️ +20 HP",
+            apply: () => {
+                playerHP = Math.min(playerHP + 20, 100);
+                updateHP();
+            }
+        }
+    ];
+
+    // losujemy 2 różne klasyczne nagrody
+    const a = rewards.splice(Math.floor(Math.random() * rewards.length), 1)[0];
+    const b = rewards.splice(Math.floor(Math.random() * rewards.length), 1)[0];
+
+    r1.textContent = a.text;
+    r2.textContent = b.text;
+    r3.textContent = "✨ Losowy czar";
+    r4.textContent = "🎁 Losowy item";
+
+    menu.style.display = "block";
+
+    r1.onclick = () => { a.apply(); close(); };
+    r2.onclick = () => { b.apply(); close(); };
+    r3.onclick = () => { giveRandomSpellReward(); };
+
+    r4.onclick = () => { giveRandomItemReward(); close(); };
+
+    function close() {
+        menu.style.display = "none";
+        onFinish();
+    }
+}
+
+function spawnCactus() {
+    currentTrees = [];
+
+    const cactusCount = Math.floor(Math.random() * 3) + 1;
+
+    for (let i = 0; i < cactusCount; i++) {
+        const tile = currentWalkable[Math.floor(Math.random() * currentWalkable.length)];
+
+        const x = tile.x1 + TILE_SIZE/2 - 80; 
+        const y = tile.y1 + TILE_SIZE/2 - 80;
+
+       const cactus = document.createElement("div");
+cactus.className = "cactus";
+
+        cactus.style.position = "absolute";
+        cactus.style.width = "160px";
+        cactus.style.height = "160px";
+        cactus.style.background = "url('cactus.png') center/contain no-repeat";
+        cactus.style.left = x + "px";
+        cactus.style.top  = y + "px";
+        cactus.style.zIndex = 4;
+
+        world.appendChild(cactus);
+
+        currentTrees.push({
+            el: cactus,
+            x1: x,
+            y1: y,
+            x2: x + 160,
+            y2: y + 160
+        });
+    }
+}
+function spawnSandRocks() {
+    currentFlowers = [];
+
+    const rockCount = Math.floor(Math.random() * 3) + 1;
+
+    for (let i = 0; i < rockCount; i++) {
+        const tile = currentWalkable[Math.floor(Math.random() * currentWalkable.length)];
+
+        const x = tile.x1 + TILE_SIZE/2 - 30;
+        const y = tile.y1 + TILE_SIZE/2 - 30;
+
+        const rock = document.createElement("div");
+rock.className = "rock";
+
+        rock.style.position = "absolute";
+        rock.style.width = "60px";
+        rock.style.height = "60px";
+        rock.style.background = "url('rock.png') center/contain no-repeat";
+        rock.style.left = x + "px";
+        rock.style.top  = y + "px";
+        rock.style.zIndex = 3;
+
+        world.appendChild(rock);
+
+        currentFlowers.push({
+            el: rock,
+            x1: x,
+            y1: y,
+            x2: x + 60,
+            y2: y + 60
+        });
+    }
+}
+function spawnDesertBoss(x, y) {
+    const boss = document.createElement("div");
+    boss.className = "enemy boss";
+    boss.style.width = "160px";
+    boss.style.height = "160px";
+    boss.style.background = "url('boss3.png') center/cover no-repeat";
+    boss.style.left = x + "px";
+    boss.style.top  = y + "px";
+
+    world.appendChild(boss);
+
+    currentEnemies.push({
+        el: boss,
+        x: x,
+        y: y,
+        hp: 160,
+        maxHP: 160,
+        isBoss: true,
+        bossType: "desert",
+
+        phase: 0,              // 0 = idle, 1 = charge1, 2 = charge2
+        chargeDX: 0,
+        chargeDY: 0,
+        chargeTime: 0,
+        hasHit: false,
+
+        attackCooldown: 2000,  // przerwa między atakami
+        attackTimer: 0
+    });
+}
+function updateDesertBoss(boss, delta) {
+    const gx = playerX + 20;
+    const gy = playerY + 20;
+    const bx = boss.x + 80;
+    const by = boss.y + 80;
+
+    const dx = gx - bx;
+    const dy = gy - by;
+    const dist = Math.hypot(dx, dy);
+
+    boss.attackTimer += delta;
+
+    // ---------- ETAP: WYBÓR ATAKU ----------
+    if (boss.phase === 0 && boss.attackTimer > boss.attackCooldown) {
+        boss.attackTimer = 0;
+
+        if (Math.random() < 0.5) {
+            startDesertCharge(boss, dx, dy);
+        } else {
+            startDesertShoot(boss, dx, dy);
+        }
+    }
+
+    // ---------- ETAP: SZARŻA ----------
+    if (boss.phase === 1 || boss.phase === 2) {
+        boss.chargeTime -= delta;
+        boss.x += boss.chargeDX;
+        boss.y += boss.chargeDY;
+
+        boss.el.style.left = boss.x + "px";
+        boss.el.style.top  = boss.y + "px";
+
+        // kolizja tylko RAZ
+        if (!boss.hasHit) {
+            if (rectsOverlap(boss.x, boss.y, 160, 160, playerX, playerY, 40, 40)) {
+                playerHP -= 12;
+                updateHP();
+                boss.hasHit = true;
+            }
+        }
+
+        if (boss.chargeTime <= 0) {
+            if (boss.phase === 1) {
+                // przejście do drugiej szarży
+                boss.phase = 2;
+                boss.hasHit = false;
+                boss.chargeTime = 250;
+            } else {
+                // koniec szarż
+                boss.phase = 0;
+            }
+        }
+    }
+}
+function startDesertCharge(boss, dx, dy) {
+    const len = Math.hypot(dx, dy);
+
+    boss.chargeDX = (dx / len) * 11;   // szybka, ale krótka szarża
+    boss.chargeDY = (dy / len) * 11;
+
+    boss.phase = 1;        // pierwsza szarża
+    boss.chargeTime = 250; // bardzo krótka
+    boss.hasHit = false;
+
+    boss.el.style.filter = "brightness(1.8)";
+    setTimeout(() => boss.el.style.filter = "brightness(1)", 250);
+}
+function startDesertShoot(boss, dx, dy) {
+    boss.phase = 0;
+
+    shootDesertBullet(boss, dx, dy);
+
+    setTimeout(() => {
+        // 🔒 JEŚLI BOSS JUŻ ODPADŁ → NIC NIE RÓB
+        if (!boss.el || !boss.el.parentNode || boss.hp <= 0) return;
+        shootDesertBullet(boss, dx, dy);
+    }, 300);
+}
+
+function shootDesertBullet(boss, dx, dy) {
+    const len = Math.hypot(dx, dy);
+    const vx = (dx / len) * 6;
+    const vy = (dy / len) * 6;
+
+    const ex = boss.x + 80;
+    const ey = boss.y + 40; // ogon skorpiona
+
+    const ball = document.createElement("img");
+    ball.src = "pocisk2.png";
+    ball.style.position = "absolute";
+    ball.style.width = "60px";
+    ball.style.height = "60px";
+    ball.style.left = (ex - 30) + "px";
+    ball.style.top  = (ey - 30) + "px";
+    ball.style.zIndex = 20;
+    world.appendChild(ball);
+
+    enemyProjectiles.push({
+        el: ball,
+        x: ex - 30,
+        y: ey - 30,
+        dx: vx,
+        dy: vy,
+        damage: 10
+    });
+}
+function spawnPlantBoss(x, y) {
+    const boss = document.createElement("div");
+    boss.className = "enemy boss";
+    boss.style.width = "160px";
+    boss.style.height = "160px";
+    boss.style.background = "url('boss4.png') center/contain no-repeat";
+    boss.style.left = x + "px";
+    boss.style.top  = y + "px";
+
+    world.appendChild(boss);
+
+    currentEnemies.push({
+        el: boss,
+        x: x,
+        y: y,
+        hp: 140,
+        maxHP: 140,
+        isBoss: true,
+        bossType: "plant",
+
+        attackCooldown: 1800,
+        attackTimer: 0
+    });
+}
+function updatePlantBoss(boss, delta) {
+    boss.attackTimer += delta;
+
+    if (boss.attackTimer < boss.attackCooldown) return;
+    boss.attackTimer = 0;
+
+    // 50/50 który atak
+    if (Math.random() < 0.5) {
+        plantTripleShot(boss);
+    } else {
+        plantDoubleRandomShot(boss);
+    }
+}
+function plantTripleShot(boss) {
+    const bx = boss.x + 80;
+    const by = boss.y + 80;
+
+    const angles = [-0.4, 0, 0.4]; // 3 kierunki
+
+    angles.forEach(a => {
+        const dx = (playerX + 20) - bx;
+        const dy = (playerY + 20) - by;
+
+        const len = Math.hypot(dx, dy);
+        let vx = (dx / len) * 6;
+        let vy = (dy / len) * 6;
+
+        // skręcanie pod kątem
+        const cos = Math.cos(a);
+        const sin = Math.sin(a);
+
+        const rx = vx * cos - vy * sin;
+        const ry = vx * sin + vy * cos;
+
+        plantShootBullet(bx, by, rx, ry);
+    });
+}
+function plantDoubleRandomShot(boss) {
+    const bx = boss.x + 80;
+    const by = boss.y + 80;
+
+    for (let i = 0; i < 2; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const vx = Math.cos(angle) * 5;
+        const vy = Math.sin(angle) * 5;
+
+        plantShootBullet(bx, by, vx, vy);
+    }
+}
+function plantShootBullet(x, y, vx, vy) {
+    const ball = document.createElement("img");
+    ball.src = "pocisk2.png";
+    ball.style.position = "absolute";
+    ball.style.width = "40px";
+    ball.style.height = "40px";
+    ball.style.left = (x - 20) + "px";
+    ball.style.top  = (y - 20) + "px";
+    ball.style.zIndex = 20;
+
+    world.appendChild(ball);
+
+    enemyProjectiles.push({
+        el: ball,
+        x: x - 20,
+        y: y - 20,
+        dx: vx,
+        dy: vy,
+        damage: 8
+    });
+}
+function spawnMirrorBoss(x, y) {
+    const boss = document.createElement("div");
+    boss.className = "enemy boss";
+    boss.style.width = "160px";
+    boss.style.height = "160px";
+    boss.style.background = "url('Themirror.png') center/contain no-repeat";
+    boss.style.left = x + "px";
+    boss.style.top  = y + "px";
+    world.appendChild(boss);
+
+    // ⭐ Lustrzana kopia
+    const clone = document.createElement("div");
+    clone.className = "enemy boss";
+    clone.style.width = "160px";
+    clone.style.height = "160px";
+    clone.style.background = "url('Themirror.png') center/contain no-repeat";
+    clone.style.opacity = "0.85";
+clone.style.filter = "none";
+
+    clone.style.left = (x + 200) + "px";
+    clone.style.top  = y + "px";
+    world.appendChild(clone);
+
+    currentEnemies.push({
+        el: boss,
+        x: x,
+        y: y,
+        hp: 180,
+        maxHP: 180,
+        isBoss: true,
+        bossType: "mirror",
+        attackCooldown: 2500,
+        attackTimer: 0,
+        cloneEl: clone
+    });
+}
+function updateMirrorBoss(boss, delta) {
+
+    // --- LOSOWY RUCH ---
+    if (!boss.moveTimer) boss.moveTimer = 0;
+    if (!boss.moveAngle) boss.moveAngle = Math.random() * Math.PI * 2;
+
+    boss.moveTimer -= delta;
+
+    // zmiana kierunku co 1.2–2.2 sekundy
+    if (boss.moveTimer <= 0) {
+        boss.moveTimer = 1200 + Math.random() * 1000;
+        boss.moveAngle = Math.random() * Math.PI * 2;
+    }
+
+    // poruszanie (bardzo lekko losowo)
+    boss.x += Math.cos(boss.moveAngle) * 1.3;
+    boss.y += Math.sin(boss.moveAngle) * 1.3;
+    boss.el.style.left = boss.x + "px";
+    boss.el.style.top  = boss.y + "px";
+// 🔥 BLOKADA MAPY — boss nigdy nie wyjdzie za pokój
+if (boss.x < 0) boss.x = 0;
+if (boss.y < 0) boss.y = 0;
+
+if (boss.x > ROOM_W - 160) boss.x = ROOM_W - 160;  // 160 = szerokość bossa
+if (boss.y > ROOM_H - 160) boss.y = ROOM_H - 160;
+
+boss.el.style.left = boss.x + "px";
+boss.el.style.top  = boss.y + "px";
+
+// 🔥 kopia też NIE może wyjść za mapę (odbite X)
+if (boss.cloneEl) {
+    let cx = ROOM_W - boss.x - 160;
+    let cy = boss.y;
+
+    if (cx < 0) cx = 0;
+    if (cy < 0) cy = 0;
+    if (cx > ROOM_W - 160) cx = ROOM_W - 160;
+    if (cy > ROOM_H - 160) cy = ROOM_H - 160;
+
+    boss.cloneEl.style.left = cx + "px";
+    boss.cloneEl.style.top  = cy + "px";
+}
+
+
+    // --- KOPIA PORUSZA SIĘ IDENTYCZNIE W ODBICIU ---
+    if (boss.cloneEl) {
+        // kopia wygląda prawie tak samo
+        boss.cloneEl.style.opacity = "0.85";  
+        boss.cloneEl.style.filter = "brightness(1.05)";
+
+        boss.cloneEl.style.left = (ROOM_W - boss.x - 160) + "px";
+        boss.cloneEl.style.top  = boss.y + "px";
+    }
+
+    // --- ATAKI ---
+    boss.attackTimer += delta;
+    if (boss.attackTimer < boss.attackCooldown) return;
+
+    boss.attackTimer = 0;
+
+    if (Math.random() < 0.5) {
+        mirrorShootBigBullet(boss);
+    } else {
+        mirrorDoRingAttack(boss);
+    }
+}
+
+function mirrorShootBigBullet(boss) {
+    const bx = boss.x + 80;
+    const by = boss.y + 80;
+
+    const dx = (playerX + 20) - bx;
+    const dy = (playerY + 20) - by;
+    const len = Math.hypot(dx, dy);
+
+    const vx = (dx / len) * 3;
+    const vy = (dy / len) * 3;
+
+    const ball = document.createElement("img");
+    ball.src = "pocisk1.png";
+    ball.style.position = "absolute";
+    ball.style.width = "120px";
+    ball.style.height = "60px";
+    ball.style.left = (bx - 60) + "px";
+    ball.style.top  = (by - 30) + "px";
+    ball.style.zIndex = 20;
+    ball.style.transform = `rotate(${Math.atan2(vy, vx)}rad)`;
+    world.appendChild(ball);
+
+    enemyProjectiles.push({
+        el: ball,
+        x: bx - 60,
+        y: by - 30,
+        dx: vx,
+        dy: vy,
+        damage: 15   // duży pocisk
+    });
+}
+function mirrorDoRingAttack(boss) {
+    const ring = document.createElement("div");
+    ring.style.position = "absolute";
+    ring.style.width = "30px";
+    ring.style.height = "30px";
+    ring.style.borderRadius = "50%";
+    ring.style.background = "rgba(150,0,255,0.15)";
+    ring.style.left = (boss.x + 65) + "px";
+    ring.style.top  = (boss.y + 65) + "px";
+    ring.style.zIndex = 15;
+    world.appendChild(ring);
+
+    let r = 30;
+    let hitOnce = false; // 🔥 gracz może dostać TYLKO RAZ od tego ataku
+
+    const interval = setInterval(() => {
+        r += 12;
+        ring.style.width = r + "px";
+        ring.style.height = r + "px";
+        ring.style.left = (boss.x + 80 - r/2) + "px";
+        ring.style.top  = (boss.y + 80 - r/2) + "px";
+
+        if (!hitOnce) {
+            if (
+                playerX < boss.x + 80 + r/2 &&
+                playerX + 40 > boss.x + 80 - r/2 &&
+                playerY < boss.y + 80 + r/2 &&
+                playerY + 40 > boss.y + 80 - r/2
+            ) {
+                playerHP -= 20;
+                updateHP();
+                hitOnce = true;  // 🔥 tylko pierwszy raz zada obrażenia
+            }
+        }
+
+        if (r > 500) {
+            ring.remove();
+            clearInterval(interval);
+        }
+
+    }, 40);
+}
+document.getElementById("buyFireSpell").onclick = () => {
+    if (!shopOpen) return;
+
+    if (gold < 60) {
+        alert("Masz za mało złota!");
+        return;
+    }
+
+    const cont = document.getElementById("shopSlots");
+    cont.innerHTML = "<h3>Wybierz slot na ognistą kulę:</h3>";
+
+    // Można WYBRAĆ TAKŻE ZAJĘTY SLOT → nadpisujemy
+    for (let s = 1; s <= 3; s++) {
+        const btn = document.createElement("div");
+        btn.className = "shopItem";
+        btn.textContent = `Slot ${s} (teraz: ${spellsInSlots[s] || "pusty"})`;
+
+        btn.onclick = () => {
+            gold -= 60;
+            updateGold();
+
+            // podmieniamy czar w tym slocie
+            spellsInSlots[s] = "czar2.png";
+            document.querySelector(`#slot${s} img`).src = "czar2.png";
+
+            closeShop();
+        };
+
+        cont.appendChild(btn);
+    }
+};
+function fireFireSpell(slot) {
+    const gx = playerX + 20;
+    const gy = playerY + 20;
+
+    const mx = mouseX + camX;
+    const my = mouseY + camY;
+
+    const dx = mx - gx;
+    const dy = my - gy;
+
+    const len = Math.hypot(dx, dy);
+    const vx = (dx / len) * 12; // 🔥 szybszy niż czar 1
+    const vy = (dy / len) * 12;
+
+    const ball = document.createElement("img");
+    ball.src = "pocisk3.png";  // 🔥 Twój nowy pocisk
+    ball.style.position = "absolute";
+
+    const w = 120;
+    const h = 60;
+
+    ball.style.width = w + "px";
+    ball.style.height = h + "px";
+    ball.style.left = (gx - w/2) + "px";
+    ball.style.top  = (gy - h/2) + "px";
+    ball.style.transform = `rotate(${Math.atan2(vy, vx)}rad)`;
+    ball.style.zIndex = 20;
+
+    world.appendChild(ball);
+
+    projectiles.push({
+        el: ball,
+        x: gx - w/2,
+        y: gy - h/2,
+        dx: vx,
+        dy: vy,
+        slot: slot,
+        fireSpell: true // 🔥 oznaczenie że to TEN czar
+    });
+}
+document.getElementById("buyHealSpell").onclick = () => {
+    if (!shopOpen) return;
+
+    if (gold < 100) {
+        alert("Masz za mało złota!");
+        return;
+    }
+
+    const cont = document.getElementById("shopSlots");
+    cont.innerHTML = "<h3>Wybierz slot na czar leczenia:</h3>";
+
+    // można wybrać również zajęty slot (nadpisujemy)
+    for (let s = 1; s <= 3; s++) {
+        const btn = document.createElement("div");
+        btn.className = "shopItem";
+        btn.textContent = `Slot ${s} (teraz: ${spellsInSlots[s] || "pusty"})`;
+
+        btn.onclick = () => {
+            gold -= 100;
+            updateGold();
+
+            spellsInSlots[s] = "czar4.png";
+            document.querySelector(`#slot${s} img`).src = "czar4.png";
+
+            closeShop();
+        };
+
+        cont.appendChild(btn);
+    }
+};
+function castHealSpell() {
+    playerHP = Math.min(playerHP + 15, 100);
+    updateHP();
+}
+
+function updateItemHUD() {
+    const hud = document.getElementById("itemHUD");
+    hud.innerHTML = "";
+
+    magicItems.forEach(icon => {
+        const img = document.createElement("img");
+        img.src = icon;
+        img.className = "itemIcon";
+        hud.appendChild(img);
+    });
+}
+document.getElementById("magicBar").style.display = "none";
+function spawnAntlionKing(x, y) {
+    const boss = document.createElement("div");
+    boss.className = "enemy boss";
+    boss.style.width = "160px";
+    boss.style.height = "160px";
+    boss.style.background = "url('boss5.png') center/contain no-repeat";
+    boss.style.left = x + "px";
+    boss.style.top  = y + "px";
+    world.appendChild(boss);
+
+    currentEnemies.push({
+        el: boss,
+        x: x,
+        y: y,
+        hp: 220,
+        maxHP: 220,
+        isBoss: true,
+        bossType: "antlionKing",
+
+        burrowed: false,        // czy pod ziemią
+        burrowTimer: 0,         // timer pod ziemią
+        attackCooldown: 2800,   // przerwa między atakami
+        attackTimer: 0,
+        hasPoppedHit: false,    // czy już trafił wynurzeniem
+
+        field: null // wir piaskowy
+    });
+}
+function updateAntlionKing(boss, delta) {
+
+    boss.attackTimer += delta;
+
+    // ============================
+    // 1) BOSS POD ZIEMIĄ
+    // ============================
+    if (boss.burrowed) {
+// BOSS jest nietykalny pod ziemią
+boss.invulnerable = boss.burrowed;
+
+        // goni gracza jako "piasek"
+        const bx = boss.x + 80;
+        const by = boss.y + 80;
+        const gx = playerX + 20;
+        const gy = playerY + 20;
+
+        const dx = gx - bx;
+        const dy = gy - by;
+        const dist = Math.hypot(dx, dy);
+
+        boss.x += (dx / dist) * 3;
+        boss.y += (dy / dist) * 3;
+// 🔒 BLOKADA POKOJU
+if (boss.x < 0) boss.x = 0;
+if (boss.y < 0) boss.y = 0;
+if (boss.x > ROOM_W - 160) boss.x = ROOM_W - 160;
+if (boss.y > ROOM_H - 160) boss.y = ROOM_H - 160;
+
+boss.el.style.left = boss.x + "px";
+boss.el.style.top  = boss.y + "px";
+
+        boss.el.style.opacity = "0";    // niewidoczny
+        boss.el.style.pointerEvents = "none";
+
+        // cząsteczki piasku
+        if (!boss.particleEl) {
+            const p = document.createElement("div");
+            p.style.position = "absolute";
+            p.style.width = "80px";
+            p.style.height = "80px";
+            p.style.borderRadius = "50%";
+            p.style.background = "rgba(150,120,40,0.45)";
+            p.style.boxShadow = "0 0 25px rgba(150,120,40,0.6)";
+            p.style.zIndex = 3;
+            boss.particleEl = p;
+            world.appendChild(p);
+        }
+
+        boss.particleEl.style.left = (boss.x + 40) + "px";
+        boss.particleEl.style.top  = (boss.y + 40) + "px";
+
+
+        // Wynurzenie po czasie
+        boss.burrowTimer -= delta;
+        if (boss.burrowTimer <= 0) {
+            boss.burrowed = false;
+            boss.el.style.opacity = "1";
+            boss.hasPoppedHit = false;
+// 🔄 Restart kolizji po wynurzeniu – reset pozycji na najbliższą podłogę
+const safe = findNearestWalkableTile(boss.x + 80, boss.y + 80);
+if (safe) {
+    boss.x = safe.x - 80;
+    boss.y = safe.y - 80;
+    boss.el.style.left = boss.x + "px";
+    boss.el.style.top  = boss.y + "px";
+}
+
+
+            if (boss.particleEl) boss.particleEl.remove();
+            boss.particleEl = null;
+// ❗ Wynurzenie — zadaje 20 dmg TYLKO raz
+if (!boss.hasPoppedHit) {
+    if (rectsOverlap(boss.x, boss.y, 160, 160, playerX, playerY, 40, 40)) {
+        playerHP -= 20;
+        updateHP();
+
+        // odpychanie gracza aby nie utknął w bossie
+        playerX += (Math.random() * 60 - 30);
+        playerY += (Math.random() * 60 - 30);
+        updatePlayerPosition();
+
+        boss.hasPoppedHit = true;
+    }
+}
+
+        }
+        return;
+    }
+
+    // ============================
+    // 2) WYBÓR ATAKU
+    // ============================
+    if (boss.attackTimer >= boss.attackCooldown) {
+        boss.attackTimer = 0;
+
+        if (Math.random() < 0.5) {
+            antlionKingBurrowAttack(boss);
+        } else {
+            antlionKingSandVortex(boss);
+        }
+    }
+}
+function antlionKingBurrowAttack(boss) {
+    boss.burrowed = true;
+    boss.burrowTimer = 1500 + Math.random() * 800; // 1.5–2.3 sek
+}
+function antlionKingSandVortex(boss) {
+    const range = 260;
+
+    const f = document.createElement("div");
+    f.style.position = "absolute";
+    f.style.width = (range * 2) + "px";
+    f.style.height = (range * 2) + "px";
+    f.style.borderRadius = "50%";
+    f.style.background = "rgba(180,140,40,0.35)";
+    f.style.left = (boss.x + 80 - range) + "px";
+    f.style.top  = (boss.y + 80 - range) + "px";
+    f.style.zIndex = 3;
+
+    world.appendChild(f);
+
+    const centerX = boss.x + 80;
+    const centerY = boss.y + 80;
+
+    let damageTimer = 0;
+
+    boss.vortexInterval = setInterval(() => {
+
+
+        const dx = (centerX - (playerX + 20));
+        const dy = (centerY - (playerY + 20));
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < range) {
+            const pullX = (dx / dist) * 1.3;
+            const pullY = (dy / dist) * 1.3;
+
+            playerX += pullX;
+            playerY += pullY;
+            updatePlayerPosition();
+
+            damageTimer += 40;
+            if (damageTimer >= 1500) {
+                playerHP -= 1;
+                updateHP();
+                damageTimer = 0;
+            }
+        }
+
+    }, 40);
+
+    // pole znika po 4 sekundach
+    setTimeout(() => {
+    if (boss.vortexInterval) {
+        clearInterval(boss.vortexInterval);
+        boss.vortexInterval = null;
+    }
+    f.remove();
+}, 4000);
+
+}
+function giveRandomSpellReward() {
+    const spell = RANDOM_SPELL_POOL[
+        Math.floor(Math.random() * RANDOM_SPELL_POOL.length)
+    ];
+
+    const menu = document.getElementById("rewardMenu");
+
+    // 🔥 wyczyść TYLKO zawartość, menu zostaje
+    menu.innerHTML = "";
+
+    const title = document.createElement("h2");
+    title.textContent = "Losowy czar!";
+    menu.appendChild(title);
+
+    const info = document.createElement("p");
+    info.textContent = "Wybierz slot:";
+    menu.appendChild(info);
+
+    for (let s = 1; s <= 3; s++) {
+        const btn = document.createElement("div");
+        btn.className = "shopItem";
+        btn.textContent = `Slot ${s} (teraz: ${spellsInSlots[s] || "pusty"})`;
+
+       btn.onclick = () => {
+    spellsInSlots[s] = spell;
+    document.querySelector(`#slot${s} img`).src = spell;
+
+    menu.style.display = "none";
+
+    // 🔥 POJAWIA SIĘ PORTAL JAK PO KAŻDYM BOSSIE
+    spawnPortal(ROOM_W / 2, ROOM_H / 2);
+};
+
+
+        menu.appendChild(btn);
+    }
+
+    menu.style.display = "block";
+}
+
+
+
+function giveRandomItemReward() {
+    magicItems.push("catfriend.png");
+    updateItemHUD();
+    spawnCatFollower();
+}
+function spawnDarkForestTrees() {
+    currentTrees = [];
+
+    const treeCount = Math.floor(Math.random() * 3) + 2; // 2–4 drzewa
+
+    for (let i = 0; i < treeCount; i++) {
+        const tile = currentWalkable[
+            Math.floor(Math.random() * currentWalkable.length)
+        ];
+
+        const x = tile.x1 + TILE_SIZE/2 - 80;
+        const y = tile.y1 + TILE_SIZE/2 - 80;
+
+        const tree = document.createElement("div");
+        tree.className = "tree2";
+        tree.style.left = x + "px";
+        tree.style.top  = y + "px";
+
+        world.appendChild(tree);
+
+        currentTrees.push({
+            el: tree,
+            x1: x,
+            y1: y,
+            x2: x + 160,
+            y2: y + 160
+        });
+    }
+}
+function destroyBoss(boss) {
+
+    // ⛔ stop interwałów
+    if (boss.vortexInterval) {
+        clearInterval(boss.vortexInterval);
+        boss.vortexInterval = null;
+    }
+
+    // ⛔ usuń pola / efekty
+    if (boss.field) {
+        boss.field.remove();
+        boss.field = null;
+    }
+
+    if (boss.particleEl) {
+        boss.particleEl.remove();
+        boss.particleEl = null;
+    }
+
+    // ⛔ roślina i inne pociski NIE mają timerów — ale zabezpieczenie zostaje
+    boss.attackTimer = 0;
+}
+
+
+
+
+</script>
+</body>
+</html>
